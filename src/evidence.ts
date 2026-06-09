@@ -1,5 +1,5 @@
-import { EventEmitter } from 'node:events';
-import path from 'node:path';
+import mitt from 'mitt';
+import path from 'pathe';
 import type { DevEnvironment, Plugin } from 'vite';
 import type {
 	EditReceipt,
@@ -60,12 +60,8 @@ export class GumboxTimeoutError extends Error {}
  */
 export class EvidenceStore {
 	readonly events: EvidenceEvent[] = [];
-	private readonly emitter = new EventEmitter();
+	private readonly emitter = mitt<{ event: EvidenceEvent }>();
 	private seq = 0;
-
-	constructor() {
-		this.emitter.setMaxListeners(0);
-	}
 
 	nextSeq(): number {
 		this.seq += 1;

@@ -1,0 +1,9 @@
+{
+	"nodeModulesDir": "auto",
+	"tasks": {
+		"test": "vp test",
+		"test:watch": "vp test watch",
+		"build": "vp pack",
+		"check": "vp check"
+	}
+}

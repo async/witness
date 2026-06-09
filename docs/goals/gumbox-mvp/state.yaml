@@ -3,7 +3,7 @@ goal:
   title: "Gumbox MVP Implementation"
   status: active
   mode: specific
-  oracle: "pnpm test green with spec-behavior tests against a real Vite pipeline; final Judge spec-conformance audit"
+  oracle: "workspace test task green (deno task test after course correction) with spec-behavior tests against a real Vite pipeline; final Judge spec-conformance audit"
 agents:
   scout: installed
   judge: installed
@@ -63,7 +63,7 @@ tasks:
   - id: T004
     type: worker
     assignee: Worker
-    status: active
+    status: done
     objective: "Implement the core Gumbox runtime as one vertical slice — box() authoring surface, *.box.ts(x) discovery/loading, pipeline.dev() via createServer, environment.<name> capability gating (request/import), project.edit with watcher-driven HMR evidence and guaranteed restore, a minimal expect.environment/expect.pipeline/expect.html namespace, and a versioned JSON receipt written to .gumbox/receipts — proven end-to-end by pnpm test against a new minimal in-repo Vite fixture, with no browser dependency."
     inputs:
       - notes/T003-judge-decision.md
@@ -88,15 +88,169 @@ tasks:
       - "Vite 8.0.16 Environment API lacks a needed hook and a spec deviation would be required — record the conflict and stop."
       - "Tests only pass with blind sleeps instead of event-driven waits."
       - "Verification fails twice."
-    receipt: null
+    receipt:
+      result: done
+      changed_files: [src/index.ts, src/types.ts, src/box.ts, src/discovery.ts, src/runner.ts, src/project.ts, src/environments.ts, src/evidence.ts, src/expect.ts, src/receipt.ts, test/gumbox.test.ts, "test/fixtures/basic/**", tsconfig.json, vite.config.ts]
+      commands:
+        - { cmd: "pnpm test", status: pass, detail: "2 files, 5 tests passed; PM re-verified independently" }
+        - { cmd: "pnpm run build", status: pass }
+        - { cmd: "pnpm run check", status: pass }
+      summary: "Core runtime end-to-end with no browser: box() brand, discoverBoxes via vite runnerImport, runBoxes with createServer + env capability gating, project.edit with diff + guaranteed restore, evidence via wrapped hot-channel + hotUpdate hooks + real Node WebSocket, normalized EnvironmentEditOutcome, expect recording pass+fail, versioned receipt + latest pointer. Committed as 89dab41."
+      notes:
+        - "docs/** excluded from vp fmt/lint in vite.config.ts (control files were failing baseline check)"
+        - "client request(path) = HTTP fetch against dev server (not FetchableDevEnvironment)"
+        - "EnvironmentEditOutcome.plugins always [] this slice; build/preview and edit.create/remove/copy/config throw later-slice errors"
+  - id: T010
+    type: pm
+    assignee: PM
+    status: done
+    objective: "Course correction (user directive 2026-06-09): encode runtime-agnostic + best-tooling policy into .claude config (rules for pathe/ufo/mlly/std-env/tinyglobby, node:fs-only exception, rolldown/oxc native AST, deno workspace), and update charter/board accordingly."
+    constraints:
+      - "Policy must forbid node:* (except node:fs/promises) and Deno.* in library code."
+      - "Policy must mandate rolldown/oxc native AST over babel/acorn for plugin AST work."
+    expected_output:
+      - "Updated .claude/rules files"
+      - "Updated goal.md constraints and state.yaml verify commands"
+    receipt:
+      result: done
+      changed_files:
+        - .claude/rules/runtime-agnostic-tooling.md
+        - .claude/rules/guidance-source-of-truth.md
+        - .claude/rules/generated-output-boundaries.md
+        - .claude/rules/test-driven-development.md
+        - CLAUDE.md
+        - docs/goals/gumbox-mvp/goal.md
+        - docs/goals/gumbox-mvp/state.yaml
+      summary: "New runtime-agnostic-tooling rule (no node:* except node:fs/promises, pathe/ufo/mlly/std-env/tinyglobby table, rolldown/oxc native AST mandate, deno workspace tasks, dependency checklist). Repaired rules copied from another repo: guidance-source-of-truth rewritten (no .ruler tree exists here; .claude/rules is hand-edited source), generated-output-boundaries no longer forbids editing .claude/ and lists this repo's real generated outputs, TDD rule de-qwikified. Root CLAUDE.md created so policy loads every session. Charter amended with Course Correction section; oracle now deno task test."
+      notes:
+        - "ruler binary exists on PATH; if the user wants the .ruler->generated workflow later, migrate these rules as sources then."
+  - id: T011
+    type: worker
+    assignee: Worker
+    status: done
+    objective: "Purge runtime-specific imports from src/ and test/: node:path -> pathe, node:url fileURLToPath -> mlly, node:os tmpdir usage -> repo-local .tmp dir, node:events EventEmitter -> small env-agnostic emitter (mitt or inline typed emitter), readdir-walk discovery -> tinyglobby. node:fs/promises remains the only permitted node: import. No behavior changes; all existing tests stay green."
+    inputs:
+      - .claude/rules/runtime-agnostic-tooling.md
+      - src/
+      - test/
+    allowed_files:
+      - "src/**"
+      - "test/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "docs/goals/gumbox-mvp/notes/T011-*.md"
+    verify:
+      - "pnpm test"
+      - "pnpm run build"
+      - "pnpm run check"
+      - "grep -rn 'node:' src/ test/ returns only node:fs imports"
+    stop_if:
+      - "A node: API has no environment-agnostic replacement and is not fs — record it and stop."
+      - "Tests require behavior changes to pass."
+      - "Verification fails twice."
+    receipt:
+      result: done
+      changed_files:
+        - src/project.ts
+        - src/receipt.ts
+        - src/runner.ts
+        - src/evidence.ts
+        - src/discovery.ts
+        - test/gumbox.test.ts
+        - package.json
+        - pnpm-lock.yaml
+        - .gitignore
+      commands:
+        - { cmd: "pnpm test", status: pass, detail: "5/5; PM re-verified independently" }
+        - { cmd: "pnpm run build", status: pass, detail: "vp pack externalizes pathe/mlly/tinyglobby/mitt -> regular dependencies" }
+        - { cmd: "pnpm run check", status: pass, detail: "worker hit formatting fail on PM-owned .claude rule file; PM ran vp check --fix, now green" }
+        - { cmd: "grep -rn 'node:' src/ test/", status: pass, detail: "only node:fs/promises (3 lines)" }
+      summary: "node:path -> pathe (5 files), node:url fileURLToPath -> mlly, node:events EventEmitter -> mitt (dropped Node-only setMaxListeners), node:os tmpdir -> repo-local gitignored .tmp/ with mkdtemp, hand-rolled readdir walk -> tinyglobby glob '**/*.box.{ts,tsx}' with matching ignores + explicit sort. No behavior changes."
+  - id: T012
+    type: worker
+    assignee: Worker
+    status: done
+    objective: "Migrate workspace tooling to Deno: deno.json with tasks mirroring package.json scripts (test, build, check), deno install for dependency management, lockfile committed; package.json kept for npm publishing metadata; library code stays runtime-agnostic (no Deno.* anywhere in src/). Prove deno task test, deno task build, deno task check green."
+    inputs:
+      - package.json
+      - .claude/rules/runtime-agnostic-tooling.md
+    allowed_files:
+      - "deno.json"
+      - "deno.lock"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".gitignore"
+      - "README.md"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "docs/goals/gumbox-mvp/notes/T012-*.md"
+    verify:
+      - "deno task test"
+      - "deno task build"
+      - "deno task check"
+    stop_if:
+      - "vite-plus/vitest cannot run under deno after two distinct attempts — record findings, keep pnpm as documented fallback, and stop for PM decision."
+      - "Any src/ change would be required."
+      - "Verification fails twice."
+    receipt:
+      result: done
+      changed_files:
+        - deno.json
+        - deno.lock
+        - package.json
+        - pnpm-workspace.yaml (deleted)
+        - pnpm-lock.yaml (deleted)
+      commands:
+        - { cmd: "deno install", status: pass, detail: "75 packages from package.json" }
+        - { cmd: "deno task test", status: pass, detail: "5/5; PM re-verified independently" }
+        - { cmd: "deno task build", status: pass, detail: "dist 48.34 kB; PM re-verified independently" }
+        - { cmd: "deno task check", status: pass, detail: "39 files formatted, 0 lint issues; PM re-verified independently" }
+      summary: "Workspace runs on Deno: deno.json tasks (test/test:watch/build/check) invoke vp via node_modules/.bin under Deno node compat with nodeModulesDir auto — no compat flags needed. pnpm-workspace.yaml, pnpm-lock.yaml, packageManager, and all package.json scripts removed; package.json is publishing metadata only. engines node>=22 kept (describes published-package consumers, not workspace runtime). deno.lock committed."
+  - id: T013
+    type: judge
+    assignee: Judge
+    status: done
+    objective: "Audit the course correction: no node:* in src/ or test/ beyond node:fs/promises, no Deno.* in src/, deno tasks green, .claude rules encode the tooling policy, board verify commands updated. Decide whether slice 2 (T005) may resume under the new constraints."
+    receipt:
+      result: done
+      decision: approved
+      full_outcome_complete: false
+      course_correction_complete: true
+      rationale: "Verified by Judge's own commands: only node:fs/promises remains (3 lines), no process./Deno./Bun./require/__dirname; pathe/mlly/tinyglobby/mitt genuinely used; deno task test 5/5, check and build green; policy fully encoded in .claude/rules + CLAUDE.md with no cross-repo contamination; T011 diff is a faithful mechanical port with no behavior change. Slice 2 (T005) may resume under the new constraints."
+      gaps_resolved_by_pm:
+        - "Tranche committed (was uncommitted at audit time)"
+        - "T011/T012 statuses flipped to done"
+        - "prepublishOnly: deno task build restored as npm publish safety hook"
+      gaps_open:
+        - "info: ufo and std-env mandated by rule but not yet dependencies — add when first needed"
   - id: T005
     type: worker
     assignee: Worker
     status: queued
-    objective: "Slice 2: project.edit.create/remove/copy/config, expect.pipeline.serverRestarted, pipeline.build() via createBuilder with build() fallback, build.artifact(), expect.build.* / expect.artifact.* — covers canonical scenario 3 (build artifact scan + forbidden-string leakage check) with a build fixture."
-    allowed_files: []
-    verify: []
-    stop_if: []
+    objective: "Slice 2: project.edit.create/remove/copy/config, expect.pipeline.serverRestarted, pipeline.build() via createBuilder with build() fallback, build.artifact(), expect.build.* / expect.artifact.* — covers canonical scenario 3 (build artifact scan + forbidden-string leakage check) with a build fixture. Must follow .claude/rules/runtime-agnostic-tooling.md."
+    inputs:
+      - notes/T003-judge-decision.md
+      - specs/box-authoring.md
+      - specs/scenarios-and-receipts.md
+    allowed_files:
+      - "src/**"
+      - "test/**"
+      - "package.json"
+      - "deno.lock"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "docs/goals/gumbox-mvp/notes/T005-*.md"
+    verify:
+      - "deno task test"
+      - "deno task build"
+      - "deno task check"
+    stop_if:
+      - "Any change needed outside this repo, or qwik-bundler touched/resolved at test time."
+      - "Slice seems to require a browser dependency (slice 4)."
+      - "Vite 8.0.16 lacks a needed hook and a spec deviation would be required — record the conflict and stop."
+      - "Tests only pass with blind sleeps instead of event-driven waits."
+      - "Verification fails twice."
     receipt: null
   - id: T006
     type: worker

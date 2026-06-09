@@ -1,12 +1,18 @@
-import { readdir } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'mlly';
+import path from 'pathe';
+import { glob } from 'tinyglobby';
 import { runnerImport } from 'vite';
 import { isBoxDefinition } from './box.ts';
 import type { BoxDefinition, DiscoveredBox, DiscoveryResult, InvalidBoxFile } from './types.ts';
 
-const BOX_FILE_PATTERN = /\.box\.tsx?$/;
-const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', '.git', '.gumbox', '.vite']);
+const BOX_FILE_GLOB = '**/*.box.{ts,tsx}';
+const SKIPPED_DIRECTORY_GLOBS = [
+	'**/node_modules/**',
+	'**/dist/**',
+	'**/.git/**',
+	'**/.gumbox/**',
+	'**/.vite/**',
+];
 
 /**
  * Box files import '@gumbox/vite', but discovered projects (for example a
@@ -25,22 +31,12 @@ function gumboxEntryFile(): string {
 }
 
 async function collectBoxFiles(root: string): Promise<string[]> {
-	const found: string[] = [];
-	const walk = async (directory: string): Promise<void> => {
-		const entries = await readdir(directory, { withFileTypes: true });
-		for (const entry of entries) {
-			if (entry.isDirectory()) {
-				if (!SKIPPED_DIRECTORIES.has(entry.name)) {
-					await walk(path.join(directory, entry.name));
-				}
-				continue;
-			}
-			if (entry.isFile() && BOX_FILE_PATTERN.test(entry.name)) {
-				found.push(path.join(directory, entry.name));
-			}
-		}
-	};
-	await walk(root);
+	const found = await glob(BOX_FILE_GLOB, {
+		cwd: root,
+		absolute: true,
+		dot: true,
+		ignore: SKIPPED_DIRECTORY_GLOBS,
+	});
 	return found.sort();
 }
 

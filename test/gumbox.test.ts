@@ -1,12 +1,14 @@
-import { cp, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { cp, mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { fileURLToPath } from 'mlly';
+import path from 'pathe';
 import { afterEach, describe, expect, test } from 'vitest';
 import { discoverBoxes, runBoxes } from '../src/index.ts';
 import type { DiscoveredBox } from '../src/index.ts';
 
 const FIXTURE_SOURCE = fileURLToPath(new URL('./fixtures/basic', import.meta.url));
+// Repo-local scratch space (gitignored) instead of os.tmpdir(), per the
+// runtime-agnostic tooling rule: the os module is forbidden in src/ and test/.
+const TMP_ROOT = path.join(fileURLToPath(new URL('..', import.meta.url)), '.tmp');
 const TEST_TIMEOUT_MS = 60_000;
 
 type ReceiptBox = {
@@ -48,9 +50,10 @@ type ReceiptJson = {
 const temporaryRoots: string[] = [];
 
 async function createFixtureProject(): Promise<string> {
-	const base = await mkdtemp(path.join(os.tmpdir(), 'gumbox-basic-'));
-	// realpath so watcher file events match the configured Vite root on macOS,
-	// where the temp dir lives behind a /var -> /private/var symlink.
+	await mkdir(TMP_ROOT, { recursive: true });
+	const base = await mkdtemp(path.join(TMP_ROOT, 'gumbox-basic-'));
+	// realpath so watcher file events match the configured Vite root in case
+	// any segment of the repo path sits behind a symlink.
 	const root = await realpath(base);
 	temporaryRoots.push(root);
 	await cp(FIXTURE_SOURCE, root, { recursive: true });

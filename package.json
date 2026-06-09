@@ -16,12 +16,13 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "vp pack",
-		"prepublishOnly": "pnpm run build",
-		"test": "vp test",
-		"test:watch": "vp test watch",
-		"check": "vp check",
-		"prepare": "vp config"
+		"prepublishOnly": "deno task build"
+	},
+	"dependencies": {
+		"mitt": "^3.0.1",
+		"mlly": "^1.8.2",
+		"pathe": "^2.0.3",
+		"tinyglobby": "^0.2.17"
 	},
 	"devDependencies": {
 		"@types/node": "24.12.2",
@@ -35,6 +36,5 @@
 	},
 	"engines": {
 		"node": ">=22"
-	},
-	"packageManager": "pnpm@10.33.2"
+	}
 }

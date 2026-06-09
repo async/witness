@@ -18,9 +18,10 @@ with boxes that run inside a real Vite pipeline and write receipts.
 - input shape: `specific` (specs exist and are authoritative; fixture source named)
 - authority: `requested`
 - proof type: `test`
-- goal oracle: `pnpm test` passes with tests that exercise spec-defined
-  behaviors against a real Vite pipeline; final Judge audit maps the
-  implementation to `specs/*.md` and to at least one qwik-bundler script
+- goal oracle: the workspace test task (`deno task test` after the 2026-06-09
+  course correction; previously `pnpm test`) passes with tests that exercise
+  spec-defined behaviors against a real Vite pipeline; final Judge audit maps
+  the implementation to `specs/*.md` and to at least one qwik-bundler script
   pattern that a box can now express.
 - likely misfire: shallow coverage of every spec area instead of a deep,
   working MVP of the wedge; or code that is spec-shaped but never actually
@@ -34,9 +35,31 @@ with boxes that run inside a real Vite pipeline and write receipts.
   conflict in a receipt instead of silently deviating.
 - Vite 8 Environment API first (`environment.<name>`, `browser` alias,
   `expect.environment.<name>`).
-- Keep `package.json` toolchain (`vp` / vite-plus, vitest, pnpm) unless a spec
-  requires otherwise.
 - qwik-bundler repo is read-only reference material — never edit it.
+
+## Course Correction (2026-06-09)
+
+User directive, supersedes the earlier "keep pnpm toolchain" constraint:
+
+- **Runtime-agnostic library.** Never import `node:path`, `node:url`,
+  `node:os`, `node:events`, `node:util`, or touch `process.*` in `src/` or
+  `test/`. Use environment-agnostic packages instead: `pathe` (paths), `ufo`
+  (URLs), `mlly` (module/url utils such as `fileURLToPath`), `std-env`
+  (env/runtime detection), `tinyglobby` (file discovery). The library must
+  not contain Deno-specific code either (`Deno.*` is equally forbidden).
+- **Filesystem exception.** `node:fs/promises` has no environment-agnostic
+  replacement and is implemented by Node, Deno, and Bun alike; it is the only
+  `node:` specifier permitted, and direct use should stay confined to the
+  modules that genuinely need it.
+- **Deno workspace.** The workspace runtime/toolchain is Deno (`deno task`,
+  `deno install`), replacing pnpm. `package.json` stays for npm publishing
+  metadata. Verify commands across the board change from `pnpm ...` to
+  `deno task ...`.
+- **Best/fastest tooling.** Prefer native tooling with TypeScript APIs and
+  the unjs ecosystem. AST work in the gumbox plugin must use rolldown/oxc's
+  native parser (`parseAst` from rolldown, oxc-parser) — never babel, acorn,
+  or a second JS parser. This policy is encoded in `.claude/rules/` so future
+  generated code follows it.
 
 ## Tranche Definition
 

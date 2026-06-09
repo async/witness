@@ -1,4 +1,4 @@
-import path from 'node:path';
+import path from 'pathe';
 import { createServer } from 'vite';
 import type { FSWatcher, InlineConfig, ViteDevServer } from 'vite';
 import { discoverBoxes } from './discovery.ts';

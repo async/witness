@@ -1,5 +1,5 @@
 import { access, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import path from 'pathe';
 import type { EvidenceStore } from './evidence.ts';
 import type { EditChange, EditReceipt, ProjectApi } from './types.ts';
 
