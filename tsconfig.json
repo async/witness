@@ -15,5 +15,6 @@
 		"declaration": true,
 		"lib": ["ESNext"]
 	},
-	"include": ["src", "test", "vite.config.ts"]
+	"include": ["src", "test", "vite.config.ts"],
+	"exclude": ["test/fixtures"]
 }

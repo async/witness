@@ -26,7 +26,7 @@ export default defineConfig({
 		include: ['test/**/*.test.ts'],
 	},
 	lint: {
-		ignorePatterns: ['dist/**', 'node_modules/**'],
+		ignorePatterns: ['dist/**', 'node_modules/**', 'docs/**'],
 	},
 	fmt: {
 		useTabs: true,
@@ -34,6 +34,6 @@ export default defineConfig({
 		printWidth: 100,
 		endOfLine: 'lf',
 		singleQuote: true,
-		ignorePatterns: ['dist/**', 'node_modules/**'],
+		ignorePatterns: ['dist/**', 'node_modules/**', 'docs/**'],
 	},
 });

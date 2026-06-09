@@ -52,26 +52,87 @@ tasks:
   - id: T003
     type: judge
     assignee: Judge
-    status: active
+    status: done
     objective: "From T001+T002 receipts, choose the first largest safe Worker slice and define its allowed_files, verify commands, and stop_if."
-    expected_output:
-      - "Decision"
-      - "Exact Worker objective"
-      - "allowed_files"
-      - "verify"
-      - "stop_if"
-    receipt: null
+    receipt:
+      result: done
+      decision: approved
+      full_outcome_complete: false
+      note: notes/T003-judge-decision.md
+      rationale: "Slice 1 = core runtime vertical (box authoring, discovery, pipeline.dev, capability-gated environments, watcher-driven project.edit with restore, normalized edit outcomes, JSON receipts) proven by pnpm test against in-repo framework-free fixture. Browser deferred to slice 4, CLI to slice 3. Ambiguities resolved: receipt format (versioned JSON + latest pointer), exit codes 0/1/2, in-repo fixture strategy."
   - id: T004
     type: worker
     assignee: Worker
+    status: active
+    objective: "Implement the core Gumbox runtime as one vertical slice — box() authoring surface, *.box.ts(x) discovery/loading, pipeline.dev() via createServer, environment.<name> capability gating (request/import), project.edit with watcher-driven HMR evidence and guaranteed restore, a minimal expect.environment/expect.pipeline/expect.html namespace, and a versioned JSON receipt written to .gumbox/receipts — proven end-to-end by pnpm test against a new minimal in-repo Vite fixture, with no browser dependency."
+    inputs:
+      - notes/T003-judge-decision.md
+      - notes/T001-spec-inventory.md
+      - specs/box-authoring.md
+      - specs/scenarios-and-receipts.md
+    allowed_files:
+      - "src/**"
+      - "test/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "docs/goals/gumbox-mvp/notes/T004-*.md"
+    verify:
+      - "pnpm test"
+      - "pnpm run build"
+      - "pnpm run check"
+    stop_if:
+      - "Any change needed outside this repo, or qwik-bundler touched/resolved at test time."
+      - "Slice seems to require Playwright or any browser dependency (that is slice 4)."
+      - "Vite 8.0.16 Environment API lacks a needed hook and a spec deviation would be required — record the conflict and stop."
+      - "Tests only pass with blind sleeps instead of event-driven waits."
+      - "Verification fails twice."
+    receipt: null
+  - id: T005
+    type: worker
+    assignee: Worker
     status: queued
-    objective: "Execute the first implementation slice selected by Judge."
+    objective: "Slice 2: project.edit.create/remove/copy/config, expect.pipeline.serverRestarted, pipeline.build() via createBuilder with build() fallback, build.artifact(), expect.build.* / expect.artifact.* — covers canonical scenario 3 (build artifact scan + forbidden-string leakage check) with a build fixture."
     allowed_files: []
     verify: []
-    stop_if:
-      - "Need files outside allowed_files."
-      - "Behavior is ambiguous against the specs."
-      - "Verification fails twice."
+    stop_if: []
+    receipt: null
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: queued
+    objective: "Slice 3: CLI entry — bin wiring, gumbox [selector] / run / list, selector matching (path, glob, name, basename, tag), --json, --receipt-dir, exit codes 0/1/2, receipt path printed on failure. Completes the tranche oracle."
+    allowed_files: []
+    verify: []
+    stop_if: []
+    receipt: null
+  - id: T007
+    type: worker
+    assignee: Worker
+    status: queued
+    objective: "Slice 4: browser evidence — Playwright dependency, browser/environment.client.visit(), expect.page.*, screenshots + console/network capture into receipts, pipeline.preview(build) + preview.browser.visit, browser-alias-target recording."
+    allowed_files: []
+    verify: []
+    stop_if: []
+    receipt: null
+  - id: T008
+    type: worker
+    assignee: Worker
+    status: queued
+    objective: "Slice 5: /__gumbox dev middleware — box metadata, state gallery listing, local-only receipt APIs, dev/preview-port-only guarantee, reject-remote-host default; gumbox open."
+    allowed_files: []
+    verify: []
+    stop_if: []
+    receipt: null
+  - id: T009
+    type: worker
+    assignee: Worker
+    status: queued
+    objective: "Slice 6: typegen (.gumbox/types ambient GumboxProjectTypes with Known<T> unions) + gumbox types, then doctor and replay."
+    allowed_files: []
+    verify: []
+    stop_if: []
     receipt: null
   - id: T999
     type: judge
