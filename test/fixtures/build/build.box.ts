@@ -19,16 +19,7 @@ export const BuildArtifacts = box(
 
 		// Forbidden-string leakage scan: the server-only secret may exist in the
 		// server bundle but must never reach client-facing output.
-		const manifestJson = JSON.parse(manifest.text) as Record<
-			string,
-			{ file: string; isEntry?: boolean }
-		>;
-		const entry = Object.values(manifestJson).find((chunk) => chunk.isEntry === true);
-		if (entry === undefined) {
-			throw new Error('expected the client manifest to record an entry chunk');
-		}
-		await expect.artifact.text(build, `dist/client/${entry.file}`, { notContains: FORBIDDEN });
-		await expect.artifact.text(build, 'dist/client/index.html', { notContains: FORBIDDEN });
+		await expect.build.forbids(build, [FORBIDDEN], { files: 'dist/client/**' });
 		await expect.artifact.text(build, 'dist/server/entry-server.js', { contains: FORBIDDEN });
 
 		await receipt.capture('artifact scan complete');
@@ -41,11 +32,10 @@ export const LeakDetector = box(
 	async ({ pipeline, expect }) => {
 		const build = await pipeline.build();
 
-		// Intentionally scans the server bundle (where the secret legitimately
-		// lives) so the test suite can prove this assertion is not a stub.
-		await expect.artifact.text(build, 'dist/server/entry-server.js', {
-			notContains: FORBIDDEN,
-		});
+		// Intentionally scans every artifact, including the server bundle where
+		// the secret legitimately lives, so the test suite can prove the leak
+		// scan is not a stub.
+		await expect.build.forbids(build, [FORBIDDEN]);
 	},
 );
 

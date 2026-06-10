@@ -6,6 +6,7 @@ import {
 	trackedEventMatchesDetail,
 } from './browser.ts';
 import type { PageHandle } from './browser.ts';
+import { glob } from 'tinyglobby';
 import type { EvidenceStore } from './evidence.ts';
 import { classifyEditOutcome, GumboxTimeoutError } from './evidence.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
@@ -13,8 +14,10 @@ import { resolveWithinRoot } from './project.ts';
 import type {
 	ArtifactHandle,
 	ArtifactJsonPredicate,
+	ArtifactTextExpectation,
 	AssertionRecord,
 	BodyTextExpectation,
+	BuildForbidsOptions,
 	BuildHandle,
 	EditEnvironmentExpectation,
 	EditExpectation,
@@ -30,6 +33,17 @@ import type {
 } from './types.ts';
 
 export class GumboxAssertionError extends Error {}
+
+/** Artifact extensions `expect.build.forbids` scans when no glob is given. */
+const TEXT_ARTIFACT_EXTENSIONS = ['.js', '.mjs', '.cjs', '.html', '.json', '.css', '.map', '.txt'];
+
+/** Normalizes a `string | string[]` expectation field to an array. */
+function toFragmentList(value: string | string[] | undefined): string[] {
+	if (value === undefined) {
+		return [];
+	}
+	return typeof value === 'string' ? [value] : value;
+}
 
 export function createExpectApi(options: {
 	store: EvidenceStore;
@@ -634,6 +648,23 @@ export function createExpectApi(options: {
 		},
 	};
 
+	const selectArtifactPaths = async (
+		build: BuildHandle,
+		filesGlob: string | undefined,
+	): Promise<string[]> => {
+		if (filesGlob === undefined) {
+			return build.artifacts
+				.map((artifact) => artifact.path)
+				.filter((artifactPath) =>
+					TEXT_ARTIFACT_EXTENSIONS.some((extension) => artifactPath.endsWith(extension)),
+				);
+		}
+		const matched = new Set(await glob([filesGlob], { cwd: root, dot: true, onlyFiles: true }));
+		return build.artifacts
+			.map((artifact) => artifact.path)
+			.filter((artifactPath) => matched.has(artifactPath));
+	};
+
 	return {
 		edit: expectEdit,
 		page: pageNamespace,
@@ -721,6 +752,54 @@ export function createExpectApi(options: {
 				}
 				passAssertion('build.artifact', null, null);
 			},
+			forbids: async (
+				build: BuildHandle,
+				forbidden: string[],
+				options?: BuildForbidsOptions,
+			): Promise<void> => {
+				if (forbidden.length === 0) {
+					failAssertion(
+						'build.forbids',
+						null,
+						null,
+						'expect.build.forbids needs at least one forbidden string.',
+					);
+				}
+				const scannedPaths = await selectArtifactPaths(build, options?.files);
+				if (scannedPaths.length === 0) {
+					failAssertion(
+						'build.forbids',
+						null,
+						null,
+						`expect.build.forbids found no text artifacts to scan${options?.files === undefined ? '' : ` matching '${options.files}'`}. Emitted artifacts: ${describeArtifactList(build)}.`,
+					);
+				}
+				const leaks: string[] = [];
+				for (const artifactPath of scannedPaths) {
+					const artifact = await build.artifact(artifactPath);
+					for (const value of forbidden) {
+						if (artifact.text.includes(value)) {
+							leaks.push(
+								`${artifactPath}: ${JSON.stringify(value)} at index ${artifact.text.indexOf(value)}`,
+							);
+						}
+					}
+				}
+				if (leaks.length > 0) {
+					failAssertion(
+						'build.forbids',
+						null,
+						null,
+						`forbidden string(s) leaked into the build output (scanned ${scannedPaths.length} artifacts):\n  - ${leaks.join('\n  - ')}`,
+						{ expected: { forbidden, files: options?.files ?? null }, observed: leaks },
+					);
+				}
+				passAssertion('build.forbids', null, null, {
+					forbidden,
+					files: options?.files ?? null,
+					scanned: scannedPaths.length,
+				});
+			},
 		},
 		artifact: {
 			exists: async (build: BuildHandle, artifactPath: string): Promise<void> => {
@@ -742,7 +821,7 @@ export function createExpectApi(options: {
 			text: async (
 				build: BuildHandle,
 				artifactPath: string,
-				expectation: { contains?: string; notContains?: string },
+				expectation: ArtifactTextExpectation,
 			): Promise<void> => {
 				let artifact: ArtifactHandle;
 				try {
@@ -751,26 +830,26 @@ export function createExpectApi(options: {
 					failAssertion('artifact.text', null, null, errorMessage(error));
 					return;
 				}
-				if (
-					expectation.contains !== undefined &&
-					!artifact.text.includes(expectation.contains)
-				) {
-					failAssertion(
-						'artifact.text',
-						null,
-						null,
-						`expected artifact ${artifactPath} (${artifact.text.length} characters) to contain ${JSON.stringify(expectation.contains)}.`,
-					);
+				const mismatches: string[] = [];
+				for (const fragment of toFragmentList(expectation.contains)) {
+					if (!artifact.text.includes(fragment)) {
+						mismatches.push(`missing ${JSON.stringify(fragment)}`);
+					}
 				}
-				if (
-					expectation.notContains !== undefined &&
-					artifact.text.includes(expectation.notContains)
-				) {
+				for (const fragment of toFragmentList(expectation.notContains)) {
+					if (artifact.text.includes(fragment)) {
+						mismatches.push(
+							`forbidden string leaked: contains ${JSON.stringify(fragment)} at index ${artifact.text.indexOf(fragment)}`,
+						);
+					}
+				}
+				if (mismatches.length > 0) {
 					failAssertion(
 						'artifact.text',
 						null,
 						null,
-						`forbidden string leaked into the build: artifact ${artifactPath} contains ${JSON.stringify(expectation.notContains)} at index ${artifact.text.indexOf(expectation.notContains)}.`,
+						`artifact ${artifactPath} (${artifact.text.length} characters) did not match:\n  - ${mismatches.join('\n  - ')}`,
+						{ expected: expectation, observed: mismatches },
 					);
 				}
 				passAssertion('artifact.text', null, null);

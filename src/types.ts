@@ -322,8 +322,19 @@ export type PageOutcomeExpectation = {
 };
 
 export type ArtifactTextExpectation = {
-	contains?: string;
-	notContains?: string;
+	/** Fragment(s) the artifact text must contain. */
+	contains?: string | string[];
+	/** Fragment(s) the artifact text must not contain. */
+	notContains?: string | string[];
+};
+
+/** Scope options for `expect.build.forbids`. */
+export type BuildForbidsOptions = {
+	/**
+	 * Glob (relative to the runner root) selecting which emitted artifacts to
+	 * scan. Defaults to every text-like artifact the build emitted.
+	 */
+	files?: string;
 };
 
 export type ArtifactJsonPredicate = (json: unknown) => boolean | Promise<boolean>;
@@ -417,6 +428,16 @@ export type ExpectApi = {
 	build: {
 		environment(build: BuildHandle, name: string): Promise<void>;
 		artifact(build: BuildHandle, path: string): Promise<void>;
+		/**
+		 * Scans the build's emitted text artifacts and fails if any forbidden
+		 * string appears, listing every file and string that matched. The
+		 * canonical leakage check: `expect.build.forbids(build, ['node:fs'])`.
+		 */
+		forbids(
+			build: BuildHandle,
+			forbidden: string[],
+			options?: BuildForbidsOptions,
+		): Promise<void>;
 	};
 	artifact: {
 		exists(build: BuildHandle, path: string): Promise<void>;

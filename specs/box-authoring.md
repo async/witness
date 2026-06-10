@@ -576,6 +576,26 @@ await expect.build.artifact(build, 'dist/client/index.html');
 await expect.artifact.json(manifest, (json) => Object.keys(json).length > 0);
 ```
 
+The canonical leakage check is a build-output scan that reads as a sentence —
+one call, every file and string hit reported at once (user directive
+2026-06-10: repeated per-string `notContains` calls were rejected as
+unreadable):
+
+```ts
+await expect.build.forbids(build, ['node:fs', 'process.cwd'], {
+	files: 'dist/worker/**', // optional; defaults to every text artifact
+});
+```
+
+Per-file checks take fragment arrays so one call covers mixed expectations:
+
+```ts
+await expect.artifact.text(build, 'dist/index.html', {
+	contains: ['q:container="paused"', 'q:manifest-hash='],
+	notContains: ['qHmr'],
+});
+```
+
 ## Environment Evidence Model
 
 Each project edit should produce a normalized receipt model per environment.
@@ -892,14 +912,8 @@ import { box } from 'gumbox';
 export default box('worker build has no node runtime assumptions', async ({ pipeline, expect }) => {
 	const build = await pipeline.build();
 
-	await expect.artifact.text(build, 'dist/worker/index.js', {
-		notContains: 'node:fs',
-	});
-	await expect.artifact.text(build, 'dist/worker/index.js', {
-		notContains: 'node:path',
-	});
-	await expect.artifact.text(build, 'dist/worker/index.js', {
-		notContains: 'process.cwd',
+	await expect.build.forbids(build, ['node:fs', 'node:path', 'process.cwd'], {
+		files: 'dist/worker/**',
 	});
 
 	const preview = await pipeline.preview(build);

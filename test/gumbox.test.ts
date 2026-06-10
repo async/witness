@@ -718,7 +718,7 @@ describe('gumbox runtime', () => {
 			const result = await runBoxes({ root, boxes, fileSystem });
 
 			expect(result.status).toBe('failed');
-			expect(result.boxes[0]?.error?.message).toContain('forbidden string leaked');
+			expect(result.boxes[0]?.error?.message).toContain('forbidden string(s) leaked');
 			expect(result.boxes[0]?.error?.message).toContain('dist/server/entry-server.js');
 			expect(result.boxes[0]?.error?.message).toContain('GUMBOX_SERVER_ONLY_SECRET');
 
@@ -729,7 +729,7 @@ describe('gumbox runtime', () => {
 			expect(boxReceipt.status).toBe('failed');
 			expect(
 				boxReceipt.assertions.some(
-					(entry) => entry.name === 'artifact.text' && entry.status === 'failed',
+					(entry) => entry.name === 'build.forbids' && entry.status === 'failed',
 				),
 			).toBe(true);
 		},
