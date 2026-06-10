@@ -1,89 +1,129 @@
 # Contributing to gumbox
 
-Welcome! This guide gets you from zero to a running dev loop in about two
-minutes — no prior Deno experience needed.
+gumbox runs **boxes**: small TypeScript files that drive a real Vite pipeline
+— dev server, HMR file edits, builds, a real browser — and write a JSON
+**receipt** proving exactly what happened. It replaces the brittle smoke
+scripts repos accumulate (`scripts/smoke-*.mjs`) with evidence you can read
+after the fact.
 
-## 1. Install Deno
+Contributing here means making the runtime observe Vite more faithfully,
+making receipts richer, or making the authoring API clearer. This guide gets
+you productive on that.
 
-Deno is the only tool you need. There is no Node, npm, or pnpm setup in this
-repo — `deno.json` is the whole manifest.
+## Setup (two minutes, no Deno experience needed)
 
-Install it from the official site: <https://docs.deno.com/runtime/getting-started/installation/>
+This repo runs on Deno — there is no Node/npm/pnpm setup, `deno.json` is the
+whole manifest.
 
-On macOS/Linux that's one command:
+1. Install Deno: <https://docs.deno.com/runtime/getting-started/installation/>
+2. `deno install` (Deno fetches the npm dependencies for you)
+3. `deno task dev` — the test suite in watch mode, your main feedback loop
 
-```sh
-curl -fsSL https://deno.land/install.sh | sh
+Also useful: `deno task test` (run once), `deno task build` (bundle to
+`dist/`), `deno task check` (format + lint + types; CI runs this), and
+`deno task fmt` when `check` complains about formatting.
+
+## The mental model: box → evidence → receipt
+
+Everything in this codebase serves this loop. A box looks like this:
+
+```ts
+import { box } from 'gumbox';
+
+export default box('message updates without reload', async ({ browser, project, expect }) => {
+	const page = await browser.visit('/demo');
+
+	// Edit a real project file; gumbox restores it after the run.
+	const change = await project.edit('src/message.ts', {
+		replace: ['before', 'after'],
+	});
+
+	// Declare what Vite should have done, in the receipt's own vocabulary.
+	await expect.edit(change, {
+		client: { hmr: 'accepted', invalidated: ['/src/message.ts'] },
+		ssr: { invalidated: [] },
+	});
+	await expect.page.text(page, '#message', 'after');
+});
 ```
 
-On Windows (PowerShell):
+While that runs, gumbox is recording **evidence**: every hot-channel payload,
+invalidated module, server restart, browser console error, navigation, and
+screenshot — whether or not the box asserts on it. The run ends with a
+versioned JSON receipt under `.gumbox/receipts/<run>/` that shows the edit
+diff, each environment's reaction, every assertion (passed AND failed, with
+expected vs observed), and a causal timeline.
 
-```powershell
-irm https://deno.land/install.ps1 | iex
-```
+Two design rules follow from this and shape most reviews:
 
-Check it worked:
+- **An assertion is a partial receipt.** `expect.edit(change, {...})` takes
+  the same shape the receipt records — authors copy the outcome they expect.
+  Don't add method-grammar assertions (`noFullReload`-style names were
+  removed deliberately).
+- **Receipts must not lie.** gumbox drives the _project's own_ Vite copy,
+  never imposes `NODE_ENV`, and never replaces real pipeline behavior with
+  mocks. If gumbox changes what the pipeline would have produced, that's a
+  bug — we've shipped fixes for exactly that (see `src/vite-loader.ts`).
 
-```sh
-deno --version
-```
+## Where things live
 
-## 2. Install dependencies
+- `specs/` — **product truth.** What the API and receipts must do. Behavior
+  changes start by checking (or changing) the spec.
+- `src/box.ts`, `src/discovery.ts` — `box()` and `*.box.ts` file discovery
+- `src/runner.ts` — runs one box: builds the six-key context
+  (`environment`, `browser`, `project`, `pipeline`, `expect`, `receipt`),
+  owns setup/teardown and guaranteed file restoration
+- `src/evidence.ts` — the evidence store: hooks into Vite's hot channel and
+  `hotUpdate` hook, classifies each environment's reaction to an edit
+- `src/expect.ts` — the assertion surface (`expect.edit`,
+  `expect.page.outcome`, `expect.build.forbids`, ...)
+- `src/project.ts` — file edits with diffs and restore
+- `src/build.ts`, `src/preview.ts` — `pipeline.build()` / `pipeline.preview()`
+- `src/browser.ts` + `src/cli/browser-host.ts` — browser evidence as an
+  injected capability (playwright-core lives only at the host boundary)
+- `src/receipt.ts` — receipt assembly and writing
+- `src/cli/` — the `gumbox` CLI and the host boundary (argv/exit/fs)
+- `test/fixtures/` — small real Vite apps the tests run boxes against; the
+  box files inside them are executable documentation of the API
+- `test/*.test.ts` — the suite; tests copy a fixture to a temp dir, run
+  boxes through the real pipeline, then assert on the written receipt JSON
 
-From the repo root:
+## Making a change
 
-```sh
-deno install
-```
+1. Find the spec section that covers the behavior (`specs/box-authoring.md`
+   for the API, `specs/scenarios-and-receipts.md` for receipts). If your
+   change contradicts it, the spec changes first — in the same PR is fine.
+2. Write the failing test: usually a small box in a `test/fixtures/*` app
+   plus a test that runs it and asserts on the receipt. Run it with
+   `deno task dev`.
+3. Implement, keep `deno task dev` green, then run the full
+   `deno task test && deno task build && deno task check`.
 
-This reads `deno.json` and populates `node_modules` (yes, Deno manages npm
-packages for you — you never run npm).
+Testing rules you'll be reviewed against:
 
-## 3. Develop
+- Drive the **real** Vite pipeline; never mock it.
+- Waits are event-driven (evidence events, page conditions) — never
+  `sleep(250)`.
+- Failure paths matter: if you add an assertion, prove it can fail (the
+  suite has deliberate-failure boxes for exactly this).
 
-```sh
-deno task dev
-```
+And the portability rule that surprises newcomers: **`src/` and test bodies
+never import `node:*` or touch `process.*`/`Deno.*`.** Paths come from
+`pathe`, module utils from `mlly`, globbing from `tinyglobby`, filesystem
+access through the injected `GumboxFileSystem`. Only explicit host
+boundaries (`src/cli/host.ts`, `test/support/*`) may adapt runtime APIs.
+Full policy: `.claude/rules/runtime-agnostic-tooling.md`.
 
-That starts the test runner in watch mode: edit a file in `src/` or `test/`,
-and the affected tests re-run instantly. It is the main feedback loop while
-you work.
+Browser-dependent tests use your installed Chrome/Edge via `playwright-core`
+and skip automatically on machines without one — nothing to download.
 
-Other tasks you'll use:
+## See it used for real
 
-```sh
-deno task test    # run the whole test suite once
-deno task build   # build the publishable package into dist/
-deno task check   # formatting + lint + type check (CI runs this)
-deno task fmt     # auto-fix formatting
-```
-
-If `deno task check` complains about formatting, `deno task fmt` fixes it.
-
-## What is this project?
-
-gumbox runs "boxes" — small TypeScript files (`*.box.ts`) that drive a real
-Vite pipeline (dev server, HMR edits, builds, a real browser) and write a
-JSON **receipt** describing exactly what happened. Start reading here:
-
-- `specs/` — what gumbox is supposed to do (product truth)
-- `src/` — the library and CLI
-- `test/fixtures/` — small Vite apps the tests run boxes against
-- `test/*.test.ts` — the test suite (`deno task dev` watches these)
-
-## Two house rules worth knowing up front
-
-1. **Library code is runtime-agnostic.** Nothing in `src/` may import
-   `node:*` modules or touch `process.*` / `Deno.*` — use `pathe`, `mlly`,
-   `tinyglobby`, the injected `GumboxFileSystem`, and friends. The full policy
-   lives in `.claude/rules/runtime-agnostic-tooling.md`.
-2. **Tests drive real Vite.** No mocked pipelines, no `sleep(...)` waits —
-   evidence is event-driven. If you're fixing behavior, add the failing test
-   first.
-
-A note on browser tests: they use your installed Chrome/Edge (via
-`playwright-core`) and skip automatically on machines without one — nothing
-to download or configure.
+The sibling `qwik-bundler` repo consumes gumbox via `link:../gumbox`: its
+`boxes/` directory replaced thirteen smoke scripts with twelve boxes (HMR
+across client/SSR/workerd environments, build artifact scans, state
+preservation). When you change the authoring API or receipts, those boxes
+are the best reality check — and the best examples to read.
 
 ## Before you open a PR
 
@@ -91,4 +131,5 @@ to download or configure.
 deno task test && deno task build && deno task check
 ```
 
-If all three pass, you're good. Thanks for contributing!
+All green, focused diff, spec updated if behavior changed. Thanks for
+contributing!
