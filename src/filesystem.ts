@@ -41,6 +41,7 @@ export type GumboxFileSystem = {
 	remove(filePath: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
 	copyDirectory(from: string, to: string): Promise<void>;
 	exists(filePath: string): Promise<boolean>;
+	fileSize(filePath: string): Promise<number>;
 };
 
 export function isPathAlreadyExistsError(error: unknown): boolean {
@@ -51,7 +52,7 @@ export function isPathAlreadyExistsError(error: unknown): boolean {
 	return code === 'EEXIST' || name === 'AlreadyExists';
 }
 
-function isPathNotFoundError(error: unknown): boolean {
+export function isPathNotFoundError(error: unknown): boolean {
 	if (typeof error !== 'object' || error === null) {
 		return false;
 	}
@@ -105,6 +106,12 @@ export function createFileSystem(runtime: GumboxFileSystemRuntime): GumboxFileSy
 		}
 	};
 
+	const fileSize = async (filePath: string): Promise<number> => {
+		// Both Deno.stat and node fs.stat results expose a numeric `size`.
+		const stats = (await runtime.stat(filePath)) as { size?: unknown };
+		return typeof stats.size === 'number' ? stats.size : 0;
+	};
+
 	return {
 		readTextFile: (filePath) => runtime.readTextFile(filePath),
 		writeTextFile: (filePath, data) => runtime.writeTextFile(filePath, data),
@@ -114,5 +121,6 @@ export function createFileSystem(runtime: GumboxFileSystemRuntime): GumboxFileSy
 		remove,
 		copyDirectory,
 		exists,
+		fileSize,
 	};
 }

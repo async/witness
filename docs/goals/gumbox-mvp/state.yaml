@@ -257,7 +257,7 @@ tasks:
   - id: T015
     type: worker
     assignee: Worker
-    status: blocked
+    status: done
     objective: "User directive: remove the remaining node:fs/promises usage. Introduce GumboxFileSystem in src/filesystem.ts as the sole filesystem capability type, require callers to inject it into runBoxes(), and keep host runtime adaptation outside the library. src/ and ordinary test bodies stop importing node:fs directly."
     allowed_files:
       - "src/**"
@@ -279,8 +279,8 @@ tasks:
       - "Abstraction would require behavior changes."
       - "Verification fails twice."
     receipt:
-      result: partial
-      summary: "Direct node:fs/promises usage removed from src/ and test/. Library now exposes GumboxFileSystem/createFileSystem and runBoxes requires injected fileSystem. Test bodies use test/support/host-file-system.ts as the explicit host adapter. Forbidden source/build-output scan, check, build, and focused non-server tests pass. Full HMR tests remain blocked by local server bind permission in this sandbox."
+      result: done
+      summary: "Direct node:fs/promises usage removed from src/ and test/. Library now exposes GumboxFileSystem/createFileSystem and runBoxes requires injected fileSystem. Test bodies use test/support/host-file-system.ts as the explicit host adapter. PM re-verified outside the restricted sandbox: deno task test 5/5 (both HMR tests pass), build and check green. Tranche committed as e0224c6."
       commands:
         - { cmd: "rg -n \"node:fs|fs/promises|from ['\\\"]node:|import .*['\\\"]fs|process\\.|Deno\\.|Bun\\.\" src test", status: pass, detail: "no matches" }
         - { cmd: "deno task check", status: pass, detail: "format/lint read vite.config.ts; tsc passed" }
@@ -288,7 +288,7 @@ tasks:
         - { cmd: "deno task test test/index.test.ts", status: pass, detail: "1/1 plugin-shell test passed" }
         - { cmd: "deno task test test/gumbox.test.ts -t \"discovers box files\"", status: pass, detail: "1/1 selected discovery test passed" }
         - { cmd: "deno task test test/gumbox.test.ts -t \"restores edited files\"", status: pass, detail: "1/1 selected edit/restore receipt test passed" }
-        - { cmd: "deno task test", status: blocked, detail: "3/5 passed; 2 HMR integration tests fail only at listen EACCES 127.0.0.1:5173 under sandbox policy; escalated rerun rejected" }
+        - { cmd: "deno task test", status: pass, detail: "PM rerun outside restricted sandbox: 2 files, 5/5 tests passed including both HMR integration tests" }
   - id: T016
     type: pm
     assignee: PM
@@ -312,7 +312,7 @@ tasks:
   - id: T005
     type: worker
     assignee: Worker
-    status: queued
+    status: done
     objective: "Slice 2: project.edit.create/remove/copy/config plus batch edits, config/env-file reload evidence, expect.pipeline.serverRestarted/reloaded, pipeline.build() via createBuilder with build() fallback, build.artifact(), expect.build.* / expect.artifact.* — covers canonical scenario 3 (build artifact scan + forbidden-string leakage check) with a build fixture. Must follow .claude/rules/runtime-agnostic-tooling.md."
     inputs:
       - notes/T003-judge-decision.md
@@ -336,15 +336,45 @@ tasks:
       - "Vite 8.0.16 lacks a needed hook and a spec deviation would be required — record the conflict and stop."
       - "Tests only pass with blind sleeps instead of event-driven waits."
       - "Verification fails twice."
-    receipt: null
+    receipt:
+      result: done
+      changed_files: [src/types.ts, src/project.ts, src/build.ts, src/expect.ts, src/evidence.ts, src/receipt.ts, src/runner.ts, src/filesystem.ts, src/index.ts, test/gumbox.test.ts, "test/fixtures/basic/{vite.config.ts,.env,restart.box.ts,edits.box.ts}", "test/fixtures/build/**"]
+      commands:
+        - { cmd: "deno task test", status: pass, detail: "9/9 (4 new: file ops+batch restore, config/env restart evidence, builder artifact scan, leak-check negative test); PM re-verified independently" }
+        - { cmd: "deno task build", status: pass }
+        - { cmd: "deno task check", status: pass, detail: "PM re-verified independently" }
+      summary: "Slice 2 done: project.edit.create/remove/copy/config + batch edits with multi-file EditReceipt and guaranteed restore (incl. created-file deletion); config/env edit boxes prove expect.pipeline.serverRestarted via real Vite restarts with new server-listening evidence; pipeline.build() via createBuilder().buildApp() with build() fallback; build.artifact(), expect.build.*, expect.artifact.exists/text/json; receipts gain additive builds records. Canonical scenario 3 (artifact scan + forbidden-string leakage) covered by client+ssr build fixture with honest-failure negative test."
+      notes:
+        - "Vite 8.0.16 implements config-file and env-file changes as full server restarts; spec defines only serverRestarted, so no separate 'reloaded' API was invented — receipt timeline distinguishes cause (vite config edited vs env file edited)."
+        - "Restoration moved after server close so a config restore cannot restart Vite mid-teardown."
   - id: T006
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     objective: "Slice 3: CLI entry — bin wiring, gumbox [selector] / run / list, selector matching (path, glob, name, basename, tag), CI headless default, --ui/--headed/--watch where feasible, --json, --receipt-dir, exit codes 0/1/2, receipt path printed on failure. Completes the tranche oracle."
-    allowed_files: []
-    verify: []
-    stop_if: []
+    inputs:
+      - specs/cli.md
+      - notes/T003-judge-decision.md
+      - src/index.ts
+      - src/runner.ts
+      - src/discovery.ts
+    allowed_files:
+      - "src/**"
+      - "test/**"
+      - "deno.json"
+      - "deno.lock"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "docs/goals/gumbox-mvp/notes/T006-*.md"
+    verify:
+      - "deno task test"
+      - "deno task build"
+      - "deno task check"
+    stop_if:
+      - "Any change needed outside this repo."
+      - "CLI slice seems to require a browser dependency (slice 4) — implement headless paths only and record the gap."
+      - "Tests only pass with blind sleeps instead of event-driven waits."
+      - "Verification fails twice."
     receipt: null
   - id: T007
     type: worker
@@ -387,11 +417,37 @@ tasks:
     verify: []
     stop_if: []
     receipt: null
+  - id: T018
+    type: worker
+    assignee: Worker
+    status: queued
+    objective: "HMR flagship evidence depth (user directive 2026-06-09): for every fixture edited under HMR, the receipt must show exactly what happened — edited files with diffs, invalidated modules and the invalidation chain/reason, accepted boundaries vs full reload, every hot-channel payload received, implicated plugins (EnvironmentEditOutcome.plugins must stop being always-empty), and per-edit timing. Prove with fixtures covering at least: accepted HMR update, full reload, css update, and multi-environment (client+ssr) divergence."
+    inputs:
+      - specs/scenarios-and-receipts.md
+      - specs/box-authoring.md
+      - src/evidence.ts
+      - notes/T002-qwik-bundler-scripts.md
+    allowed_files: []
+    verify: []
+    stop_if: []
+    receipt: null
+  - id: T019
+    type: worker
+    assignee: Worker
+    status: queued
+    objective: "qwik-bundler integration (user directive 2026-06-09, supersedes read-only constraint): replace the scripts/ folder in /Users/jacksm5pro/dev/open-source/qwik-bundler with gumbox boxes, with qwik-bundler depending on gumbox via link:../gumbox. Every smoke-script behavior inventoried in T002 must be expressible as a box (or explicitly recorded as out of gumbox scope with rationale); scripts/ is deleted only after its replacement boxes run green in qwik-bundler."
+    inputs:
+      - notes/T002-qwik-bundler-scripts.md
+      - /Users/jacksm5pro/dev/open-source/qwik-bundler/scripts/
+    allowed_files: []
+    verify: []
+    stop_if: []
+    receipt: null
   - id: T999
     type: judge
     assignee: Judge
     status: queued
-    objective: "Audit whether the implemented tranche satisfies the original outcome: gumbox follows the specs and can express at least one canonical qwik-bundler script scenario end-to-end with receipts, verified by deno task test."
+    objective: "Final audit of the extended outcome: (1) everything in specs/ is covered — implemented or explicitly deferred-by-spec — per an updated coverage map; (2) HMR receipts show exactly what happened per fixture (edits, invalidations, boundaries, hot payloads, plugins, timing); (3) qwik-bundler scripts/ is replaced by gumbox boxes via link:../gumbox and they run green. Verified by deno task test here and the box runs in qwik-bundler."
     inputs:
       - "All done task receipts"
       - "Last verification"

@@ -1,7 +1,12 @@
 import type { EvidenceStore, HotUpdateHookEvidence } from './evidence.ts';
-import { classifyEditOutcome, GumboxTimeoutError } from './evidence.ts';
+import { classifyEditOutcome, editTouchesFile, GumboxTimeoutError } from './evidence.ts';
+import type { GumboxFileSystem } from './filesystem.ts';
+import { resolveWithinRoot } from './project.ts';
 import type {
+	ArtifactHandle,
+	ArtifactJsonPredicate,
 	AssertionRecord,
+	BuildHandle,
 	EditReceipt,
 	EnvironmentEditOutcome,
 	EnvironmentExpectApi,
@@ -15,6 +20,8 @@ export function createExpectApi(options: {
 	store: EvidenceStore;
 	receiptPath: string;
 	defaultTimeoutMs: number;
+	root: string;
+	fileSystem: GumboxFileSystem;
 	getBrowserName(): string;
 	getEnvironmentKind(name: string): EnvironmentEditOutcome['kind'];
 	onAssertion(record: AssertionRecord): void;
@@ -23,6 +30,8 @@ export function createExpectApi(options: {
 		store,
 		receiptPath,
 		defaultTimeoutMs,
+		root,
+		fileSystem,
 		getBrowserName,
 		getEnvironmentKind,
 		onAssertion,
@@ -73,7 +82,7 @@ export function createExpectApi(options: {
 					(event): event is HotUpdateHookEvidence =>
 						event.kind === 'hot-update-hook' &&
 						event.environment === environment &&
-						event.file === change.absolutePath &&
+						editTouchesFile(change, event.file) &&
 						event.seq > change.seq,
 				),
 			timeoutMs,
@@ -132,7 +141,7 @@ export function createExpectApi(options: {
 									event.payload.type === 'update' &&
 									event.seq > change.seq &&
 									(event.files.length === 0 ||
-										event.files.includes(change.absolutePath)),
+										event.files.some((file) => editTouchesFile(change, file))),
 							),
 						timeoutMs,
 					);
@@ -331,8 +340,9 @@ export function createExpectApi(options: {
 				waitOptions?: ExpectWaitOptions,
 			): Promise<void> => {
 				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
+				let restartSeq = 0;
 				try {
-					await store.waitUntil(
+					const restart = await store.waitUntil(
 						`the Vite dev server to restart after editing ${change.file}`,
 						() =>
 							store.events.find(
@@ -341,6 +351,7 @@ export function createExpectApi(options: {
 							),
 						timeoutMs,
 					);
+					restartSeq = restart.seq;
 				} catch {
 					failAssertion(
 						'pipeline.serverRestarted',
@@ -349,8 +360,158 @@ export function createExpectApi(options: {
 						`expected the Vite dev server to restart after editing ${change.file}, but no restart was observed within ${timeoutMs}ms.`,
 					);
 				}
+				// Settle on the restarted server accepting connections again, so
+				// the box does not tear the server down mid-restart.
+				try {
+					await store.waitUntil(
+						'the restarted Vite dev server to start listening again',
+						() =>
+							store.events.find(
+								(event) =>
+									event.kind === 'server-listening' && event.seq > restartSeq,
+							),
+						timeoutMs,
+					);
+				} catch {
+					failAssertion(
+						'pipeline.serverRestarted',
+						null,
+						change,
+						`the Vite dev server began restarting after editing ${change.file}, but it did not start listening again within ${timeoutMs}ms.`,
+					);
+				}
 				passAssertion('pipeline.serverRestarted', null, change);
 			},
 		},
+		build: {
+			environment: async (build: BuildHandle, name: string): Promise<void> => {
+				if (!build.environments.includes(name)) {
+					failAssertion(
+						'build.environment',
+						name,
+						null,
+						`expected the Vite build to include environment '${name}', but it built: ${build.environments.join(', ') || '(none)'}.`,
+					);
+				}
+				passAssertion('build.environment', name, null);
+			},
+			artifact: async (build: BuildHandle, artifactPath: string): Promise<void> => {
+				const emitted = build.artifacts.some((artifact) => artifact.path === artifactPath);
+				if (!emitted) {
+					failAssertion(
+						'build.artifact',
+						null,
+						null,
+						`expected the build to emit ${artifactPath}, but it emitted: ${describeArtifactList(build)}.`,
+					);
+				}
+				passAssertion('build.artifact', null, null);
+			},
+		},
+		artifact: {
+			exists: async (build: BuildHandle, artifactPath: string): Promise<void> => {
+				const absolutePath = resolveWithinRoot(
+					root,
+					artifactPath,
+					`expect.artifact.exists('${artifactPath}')`,
+				);
+				if (!(await fileSystem.exists(absolutePath))) {
+					failAssertion(
+						'artifact.exists',
+						null,
+						null,
+						`expected build output ${artifactPath} to exist on disk, but it does not. Emitted artifacts: ${describeArtifactList(build)}.`,
+					);
+				}
+				passAssertion('artifact.exists', null, null);
+			},
+			text: async (
+				build: BuildHandle,
+				artifactPath: string,
+				expectation: { contains?: string; notContains?: string },
+			): Promise<void> => {
+				let artifact: ArtifactHandle;
+				try {
+					artifact = await build.artifact(artifactPath);
+				} catch (error) {
+					failAssertion('artifact.text', null, null, errorMessage(error));
+					return;
+				}
+				if (
+					expectation.contains !== undefined &&
+					!artifact.text.includes(expectation.contains)
+				) {
+					failAssertion(
+						'artifact.text',
+						null,
+						null,
+						`expected artifact ${artifactPath} (${artifact.text.length} characters) to contain ${JSON.stringify(expectation.contains)}.`,
+					);
+				}
+				if (
+					expectation.notContains !== undefined &&
+					artifact.text.includes(expectation.notContains)
+				) {
+					failAssertion(
+						'artifact.text',
+						null,
+						null,
+						`forbidden string leaked into the build: artifact ${artifactPath} contains ${JSON.stringify(expectation.notContains)} at index ${artifact.text.indexOf(expectation.notContains)}.`,
+					);
+				}
+				passAssertion('artifact.text', null, null);
+			},
+			json: (async (
+				target: BuildHandle | ArtifactHandle,
+				second: string | ArtifactJsonPredicate,
+				third?: ArtifactJsonPredicate,
+			): Promise<void> => {
+				let artifact: ArtifactHandle;
+				let predicate: ArtifactJsonPredicate;
+				if (typeof second === 'string') {
+					predicate = third as ArtifactJsonPredicate;
+					try {
+						artifact = await (target as BuildHandle).artifact(second);
+					} catch (error) {
+						failAssertion('artifact.json', null, null, errorMessage(error));
+						return;
+					}
+				} else {
+					artifact = target as ArtifactHandle;
+					predicate = second;
+				}
+				let json: unknown;
+				try {
+					json = JSON.parse(artifact.text);
+				} catch (error) {
+					failAssertion(
+						'artifact.json',
+						null,
+						null,
+						`artifact ${artifact.path} is not valid JSON: ${errorMessage(error)}.`,
+					);
+					return;
+				}
+				const accepted = await predicate(json);
+				if (!accepted) {
+					failAssertion(
+						'artifact.json',
+						null,
+						null,
+						`custom JSON predicate rejected artifact ${artifact.path}.`,
+					);
+				}
+				passAssertion('artifact.json', null, null);
+			}) as ExpectApi['artifact']['json'],
+		},
 	};
+}
+
+function describeArtifactList(build: BuildHandle): string {
+	if (build.artifacts.length === 0) {
+		return '(no artifacts were emitted)';
+	}
+	const shown = build.artifacts.slice(0, 10).map((artifact) => artifact.path);
+	const remaining = build.artifacts.length - shown.length;
+	return remaining > 0 ? `${shown.join(', ')} and ${remaining} more` : shown.join(', ');
 }

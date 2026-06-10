@@ -36,6 +36,12 @@ export type ServerRestartEvidence = {
 	at: string;
 };
 
+export type ServerListeningEvidence = {
+	kind: 'server-listening';
+	seq: number;
+	at: string;
+};
+
 export type FileEditEvidence = {
 	kind: 'file-edit';
 	file: string;
@@ -47,7 +53,13 @@ export type EvidenceEvent =
 	| HotPayloadEvidence
 	| HotUpdateHookEvidence
 	| ServerRestartEvidence
+	| ServerListeningEvidence
 	| FileEditEvidence;
+
+/** True when the given absolute file path was written/removed by this edit. */
+export function editTouchesFile(edit: EditReceipt, absolutePath: string): boolean {
+	return edit.files.some((file) => file.absolutePath === absolutePath);
+}
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
@@ -204,6 +216,19 @@ export function createEvidencePlugin(store: EvidenceStore, root: string): Plugin
 			if (configureCount > 1) {
 				store.record({ kind: 'server-restart' });
 			}
+			// 'server-listening' marks when this (initial or restarted) server
+			// actually accepts connections again, so restart assertions can
+			// settle without racing box teardown against an in-flight restart.
+			const httpServer = server.httpServer;
+			if (httpServer !== null) {
+				if (httpServer.listening) {
+					store.record({ kind: 'server-listening' });
+				} else {
+					httpServer.once('listening', () => {
+						store.record({ kind: 'server-listening' });
+					});
+				}
+			}
 			for (const environment of Object.values(server.environments)) {
 				wrapEnvironment(environment);
 			}
@@ -321,7 +346,7 @@ export function classifyEditOutcome(options: {
 		if (
 			event.kind === 'hot-update-hook' &&
 			event.environment === environmentName &&
-			event.file === edit.absolutePath
+			editTouchesFile(edit, event.file)
 		) {
 			hookSeen = true;
 			if (event.modules.length >= invalidated.length) {
@@ -330,7 +355,10 @@ export function classifyEditOutcome(options: {
 			continue;
 		}
 		if (event.kind === 'hot-payload' && event.environment === environmentName) {
-			if (event.files.length > 0 && !event.files.includes(edit.absolutePath)) {
+			if (
+				event.files.length > 0 &&
+				!event.files.some((file) => editTouchesFile(edit, file))
+			) {
 				continue;
 			}
 			if (event.payload.type === 'update') {

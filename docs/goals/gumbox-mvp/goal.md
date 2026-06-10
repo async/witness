@@ -62,10 +62,30 @@ User directive, supersedes the earlier "keep pnpm toolchain" constraint:
   or a second JS parser. This policy is encoded in `.claude/rules/` so future
   generated code follows it.
 
+## Extended Outcome (2026-06-09 /goal directive)
+
+The user extended the goal:
+
+1. **Full spec coverage.** Everything in `specs/` must be covered (implemented,
+   or explicitly deferred-by-spec) — the T016 coverage map plus slices
+   T005–T009 and T017 define the remaining work.
+2. **qwik-bundler integration.** Once specs are covered, replace the
+   `scripts/` folder in the qwik-bundler repo with gumbox boxes, with
+   qwik-bundler depending on gumbox via `link:../gumbox`. This **supersedes**
+   the earlier "qwik-bundler repo is read-only — never edit it" constraint:
+   editing qwik-bundler is now in scope for the integration task only.
+3. **HMR is a flagship use case.** For every fixture exercised under HMR, the
+   receipt must show *exactly what happened*: which files were edited, which
+   modules were invalidated and why, which boundaries accepted the update vs.
+   full-reloaded, what the hot channel broadcast, which plugins were
+   implicated, and timing. "An HMR event occurred" is not enough evidence.
+
 ## Tranche Definition
 
 Discover the spec surface and fixture patterns, then complete successive safe
 verified work packages until: the core runtime (box discovery, execution
 against a real Vite pipeline, receipt writing) and the CLI entry path work
 end-to-end for at least one canonical scenario class drawn from the
-qwik-bundler scripts, verified by `deno task test`.
+qwik-bundler scripts, verified by `deno task test`. Then continue through the
+extended outcome: full spec coverage, deep per-fixture HMR evidence, and the
+qwik-bundler `scripts/` replacement via `link:../gumbox`.

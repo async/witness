@@ -3,7 +3,13 @@ import type { EvidenceStore } from './evidence.ts';
 import { classifyEditOutcome } from './evidence.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
 import { isPathAlreadyExistsError } from './filesystem.ts';
-import type { AssertionRecord, EditReceipt, EnvironmentEditOutcome, Measurement } from './types.ts';
+import type {
+	AssertionRecord,
+	BuildRecord,
+	EditReceipt,
+	EnvironmentEditOutcome,
+	Measurement,
+} from './types.ts';
 
 export type TimelineEvent = { seq: number; at: string; type: string } & Record<string, unknown>;
 
@@ -44,6 +50,7 @@ export class BoxRecorder {
 	readonly notes: string[] = [];
 	readonly captures: Array<{ label: string; at: string }> = [];
 	readonly measurements: Measurement[] = [];
+	readonly builds: BuildRecord[] = [];
 	edits: EditReceipt[] = [];
 	vite: {
 		configFile: string | null;
@@ -121,6 +128,10 @@ export class BoxRecorder {
 				entries.push({ seq: event.seq, at: event.at, type: 'vite server restarted' });
 				continue;
 			}
+			if (event.kind === 'server-listening') {
+				entries.push({ seq: event.seq, at: event.at, type: 'vite server listening' });
+				continue;
+			}
 			if (event.kind === 'hot-update-hook') {
 				entries.push({
 					seq: event.seq,
@@ -166,7 +177,9 @@ export class BoxRecorder {
 		const passedAssertions = this.assertions.filter(
 			(record) => record.status === 'passed',
 		).length;
-		const restorationFailed = this.edits.some((edit) => edit.restored === false);
+		const restorationFailed = this.edits.some((edit) =>
+			edit.files.some((file) => file.restored === false),
+		);
 		return {
 			name: meta.name,
 			tags: [...meta.tags],
@@ -182,16 +195,35 @@ export class BoxRecorder {
 				environments: this.vite.environments,
 				browserAlias: this.vite.browserAlias,
 			},
-			edits: this.edits.map((edit) => ({
-				id: edit.id,
-				file: edit.file,
-				change: edit.change,
-				before: edit.before,
-				after: edit.after,
-				at: edit.at,
-				restored: edit.restored,
-				...(edit.restoreError === undefined ? {} : { restoreError: edit.restoreError }),
-			})),
+			edits: this.edits.map((edit) => {
+				const single = edit.files.length === 1 ? edit.files[0] : undefined;
+				const restored = edit.files.every((file) => file.restored === true)
+					? true
+					: edit.files.some((file) => file.restored === false)
+						? false
+						: null;
+				return {
+					id: edit.id,
+					file: edit.file,
+					at: edit.at,
+					restored,
+					files: edit.files.map((file) => ({
+						file: file.file,
+						change: file.change,
+						before: file.before,
+						after: file.after,
+						restored: file.restored,
+						...(file.restoreError === undefined
+							? {}
+							: { restoreError: file.restoreError }),
+					})),
+					// Single-file edits keep flat diff fields for quick reading.
+					...(single === undefined
+						? {}
+						: { change: single.change, before: single.before, after: single.after }),
+				};
+			}),
+			builds: this.builds,
 			editOutcomes,
 			assertions: this.assertions,
 			captures: this.captures,
@@ -208,6 +240,7 @@ export class BoxRecorder {
 					failed: this.assertions.length - passedAssertions,
 				},
 				edits: this.edits.length,
+				builds: this.builds.length,
 				restorationFailed,
 			},
 		};

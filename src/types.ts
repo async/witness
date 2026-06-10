@@ -57,25 +57,52 @@ export type EnvironmentApi = Record<string, EnvironmentHandle>;
 
 export type EditChange =
 	| { replace: [from: string | RegExp, to: string] }
-	| ((code: string) => string);
+	| ((code: string) => string)
+	| { create: string }
+	| { remove: true }
+	| { copyFrom: string };
 
-export type EditReceipt = {
-	readonly id: string;
+export type EditChangeSummary =
+	| { kind: 'replace'; from: string; to: string }
+	| { kind: 'function' }
+	| { kind: 'create' }
+	| { kind: 'remove' }
+	| { kind: 'copy'; from: string };
+
+export type EditedFile = {
 	/** Path relative to the Vite root. */
 	readonly file: string;
 	readonly absolutePath: string;
-	readonly before: string;
-	readonly after: string;
-	readonly change: { kind: 'replace'; from: string; to: string } | { kind: 'function' };
-	/** Evidence sequence marker; events after this sequence can be caused by the edit. */
-	readonly seq: number;
-	readonly at: string;
+	/** null when the edit created the file. */
+	readonly before: string | null;
+	/** null when the edit removed the file. */
+	readonly after: string | null;
+	readonly change: EditChangeSummary;
 	restored: boolean | null;
 	restoreError?: string;
 };
 
+export type EditReceipt = {
+	readonly id: string;
+	/** The relative file path for single-file edits, or the batch label. */
+	readonly file: string;
+	readonly files: EditedFile[];
+	/** Evidence sequence marker; events after this sequence can be caused by the edit. */
+	readonly seq: number;
+	readonly at: string;
+};
+
+export type EditApi = {
+	(path: string, change: EditChange): Promise<EditReceipt>;
+	(label: string, changes: Record<string, EditChange>): Promise<EditReceipt>;
+	create(path: string, contents: string): Promise<EditReceipt>;
+	remove(path: string): Promise<EditReceipt>;
+	copy(path: string, from: string): Promise<EditReceipt>;
+	config(change: EditChange): Promise<EditReceipt>;
+};
+
 export type ProjectApi = {
-	edit(path: string, change: EditChange): Promise<EditReceipt>;
+	edit: EditApi;
 	read(path: string): Promise<string>;
 	exists(path: string): Promise<boolean>;
 };
@@ -91,10 +118,47 @@ export type DevServerHandle = {
 	readonly server: ViteDevServer;
 };
 
+export type PipelineBuildOptions = {
+	/** Overlay the inline Vite config used for the build without editing files. */
+	config?(config: InlineConfig): InlineConfig | void;
+};
+
+export type BuildArtifact = {
+	/** Path relative to the Vite root, for example 'dist/client/index.html'. */
+	path: string;
+	bytes: number;
+};
+
+export type ArtifactHandle = {
+	/** Path relative to the Vite root. */
+	readonly path: string;
+	readonly absolutePath: string;
+	readonly text: string;
+};
+
+export type BuildHandle = {
+	/** 'builder' = Vite createBuilder() built every environment; 'build' = single-build fallback. */
+	readonly strategy: 'builder' | 'build';
+	readonly environments: readonly string[];
+	readonly artifacts: readonly BuildArtifact[];
+	artifact(path: string): Promise<ArtifactHandle>;
+};
+
+/** Build outcome facts recorded in the box receipt. */
+export type BuildRecord = {
+	id: string;
+	strategy: 'builder' | 'build';
+	environments: string[];
+	/** Per-environment output directory relative to the Vite root. */
+	outDirs: Record<string, string>;
+	artifacts: BuildArtifact[];
+	startedAt: string;
+	durationMs: number;
+};
+
 export type PipelineApi = {
 	dev(options?: PipelineDevOptions): Promise<DevServerHandle>;
-	/** Ships in a later slice. Always throws for now. */
-	build(): Promise<never>;
+	build(options?: PipelineBuildOptions): Promise<BuildHandle>;
 	/** Ships in a later slice. Always throws for now. */
 	preview(): Promise<never>;
 };
@@ -119,6 +183,13 @@ export type EnvironmentExpectApi = {
 	): Promise<void>;
 };
 
+export type ArtifactTextExpectation = {
+	contains?: string;
+	notContains?: string;
+};
+
+export type ArtifactJsonPredicate = (json: unknown) => boolean | Promise<boolean>;
+
 export type ExpectApi = {
 	environment: Record<string, EnvironmentExpectApi>;
 	/** Alias for `expect.environment.<browser environment>`. */
@@ -128,6 +199,18 @@ export type ExpectApi = {
 	};
 	pipeline: {
 		serverRestarted(change: EditReceipt, options?: ExpectWaitOptions): Promise<void>;
+	};
+	build: {
+		environment(build: BuildHandle, name: string): Promise<void>;
+		artifact(build: BuildHandle, path: string): Promise<void>;
+	};
+	artifact: {
+		exists(build: BuildHandle, path: string): Promise<void>;
+		text(build: BuildHandle, path: string, expectation: ArtifactTextExpectation): Promise<void>;
+		json: {
+			(artifact: ArtifactHandle, predicate: ArtifactJsonPredicate): Promise<void>;
+			(build: BuildHandle, path: string, predicate: ArtifactJsonPredicate): Promise<void>;
+		};
 	};
 };
 

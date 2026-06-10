@@ -1,6 +1,7 @@
 import path from 'pathe';
 import { createServer } from 'vite';
 import type { FSWatcher, InlineConfig, ViteDevServer } from 'vite';
+import { runPipelineBuild } from './build.ts';
 import { discoverBoxes } from './discovery.ts';
 import { browserVisitError, createEnvironmentRuntime } from './environments.ts';
 import type { EnvironmentRuntime } from './environments.ts';
@@ -13,12 +14,14 @@ import type {
 	BoxContext,
 	BoxRunResult,
 	BrowserEnvironmentAlias,
+	BuildHandle,
 	DevServerHandle,
 	DiscoveredBox,
 	EnvironmentApi,
 	EnvironmentHandle,
 	InvalidBoxFile,
 	PipelineApi,
+	PipelineBuildOptions,
 	ReceiptApi,
 	RunBoxesOptions,
 	RunBoxesResult,
@@ -114,6 +117,7 @@ async function runSingleBox(args: {
 		root,
 		fileSystem,
 		store,
+		getConfigFile: () => state.server?.config.configFile ?? null,
 		onTimeline: (type, detail) => recorder.timeline(type, detail),
 	});
 	recorder.edits = projectRuntime.edits;
@@ -168,10 +172,16 @@ async function runSingleBox(args: {
 			state.devHandle = { url: runtime.serverUrl, environments: runtime.names, server };
 			return state.devHandle;
 		},
-		build: async (): Promise<never> => {
-			throw new Error(
-				'pipeline.build() is not part of this Gumbox slice; build and artifact evidence ship in a later slice.',
-			);
+		build: async (buildOptions?: PipelineBuildOptions): Promise<BuildHandle> => {
+			const { handle, record } = await runPipelineBuild({
+				root,
+				fileSystem,
+				buildId: `build-${recorder.builds.length + 1}`,
+				options: buildOptions,
+				onTimeline: (type, detail) => recorder.timeline(type, detail),
+			});
+			recorder.builds.push(record);
+			return handle;
 		},
 		preview: async (): Promise<never> => {
 			throw new Error(
@@ -230,6 +240,8 @@ async function runSingleBox(args: {
 		store,
 		receiptPath,
 		defaultTimeoutMs: assertionTimeoutMs,
+		root,
+		fileSystem,
 		getBrowserName: () => state.runtime?.browserName ?? 'client',
 		getEnvironmentKind: (name) => state.runtime?.kinds[name] ?? 'server',
 		onAssertion: (record) => recorder.assertion(record),
@@ -283,12 +295,15 @@ async function runSingleBox(args: {
 		recorder.timeline('box failed', { message: recorder.error.message });
 	} finally {
 		await mirrorWsUpdateEvidence(state, store);
-		await projectRuntime.restoreAll();
 		state.ws?.close();
 		if (state.server !== null) {
 			await state.server.close().catch(() => undefined);
 			recorder.timeline('server closed', {});
 		}
+		// Restore after the server closes so restoration cannot trigger another
+		// Vite reaction (a config restore would otherwise restart the server
+		// while the box is tearing down).
+		await projectRuntime.restoreAll();
 	}
 	recorder.finish(status);
 	const receipt = recorder.buildBoxReceipt({
