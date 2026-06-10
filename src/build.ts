@@ -1,10 +1,10 @@
 import path from 'pathe';
 import { glob } from 'tinyglobby';
-import * as viteModule from 'vite';
-import { build } from 'vite';
 import type { InlineConfig } from 'vite';
 import type { GumboxFileSystem } from './filesystem.ts';
 import { resolveWithinRoot } from './project.ts';
+import { hostNodeEnv, loadProjectVite } from './vite-loader.ts';
+import type { ViteModule } from './vite-loader.ts';
 import type {
 	ArtifactHandle,
 	BuildArtifact,
@@ -29,8 +29,8 @@ type CreateBuilderFn = (inlineConfig?: InlineConfig) => Promise<ViteBuilderLike>
  * older Vite versions without it fall back to the single `build()` pipeline
  * instead of failing at import time.
  */
-function resolveCreateBuilder(): CreateBuilderFn | undefined {
-	const candidate = (viteModule as { createBuilder?: unknown }).createBuilder;
+function resolveCreateBuilder(vite: ViteModule): CreateBuilderFn | undefined {
+	const candidate = (vite as { createBuilder?: unknown }).createBuilder;
 	return typeof candidate === 'function' ? (candidate as CreateBuilderFn) : undefined;
 }
 
@@ -93,7 +93,11 @@ export async function runPipelineBuild(args: {
 	}
 	// The Vite root the build actually runs from (a box may overlay it).
 	const buildRoot = path.resolve(root, inline.root ?? root);
-	const createBuilder = resolveCreateBuilder();
+	const vite = await loadProjectVite(root);
+	// A box may pin strategy 'build' to match a project whose real pipeline is
+	// a plain `vite build` command — builder and single-build output can
+	// legitimately differ (plugin hooks observe different environment sets).
+	const createBuilder = options?.strategy === 'build' ? undefined : resolveCreateBuilder(vite);
 	const strategy: BuildRecord['strategy'] = createBuilder === undefined ? 'build' : 'builder';
 	const startedAt = new Date().toISOString();
 	const startedAtMs = performance.now();
@@ -101,6 +105,11 @@ export async function runPipelineBuild(args: {
 
 	const outDirs: Record<string, string> = {};
 	let environments: string[];
+	// Faithfulness, not policy: gumbox runs the build with whatever NODE_ENV
+	// the operator launched it with (vite itself resolves production when it
+	// is unset), and the receipt records what the build actually saw — plugins
+	// gate production-only output on it.
+	const nodeEnv = hostNodeEnv() ?? null;
 	if (createBuilder !== undefined) {
 		const builder = await createBuilder(inline);
 		environments = Object.keys(builder.environments);
@@ -115,7 +124,7 @@ export async function runPipelineBuild(args: {
 		}
 	} else {
 		// Compatibility fallback: build() runs only the default client pipeline.
-		await build(inline);
+		await vite.build(inline);
 		environments = ['client'];
 		outDirs['client'] = relativeOutDir(root, buildRoot, inline.build?.outDir);
 		onTimeline('build environment completed', {
@@ -129,6 +138,7 @@ export async function runPipelineBuild(args: {
 	const record: BuildRecord = {
 		id: buildId,
 		strategy,
+		nodeEnv,
 		environments,
 		outDirs,
 		artifacts,

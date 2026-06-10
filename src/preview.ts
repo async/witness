@@ -1,5 +1,5 @@
-import { preview } from 'vite';
 import type { InlineConfig } from 'vite';
+import { loadProjectVite } from './vite-loader.ts';
 import type { PageHandle, VisitArgs } from './browser.ts';
 import type { BuildHandle, PipelinePreviewOptions, PreviewHandle, PreviewRecord } from './types.ts';
 
@@ -41,7 +41,8 @@ export async function startPipelinePreview(args: {
 		inline = options.config(inline) ?? inline;
 	}
 
-	const server = await preview(inline);
+	const vite = await loadProjectVite(root);
+	const server = await vite.preview(inline);
 	const url = server.resolvedUrls?.local[0];
 	if (url === undefined) {
 		await server.close().catch(() => undefined);

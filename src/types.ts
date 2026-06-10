@@ -149,6 +149,13 @@ export type DevServerHandle = {
 export type PipelineBuildOptions = {
 	/** Overlay the inline Vite config used for the build without editing files. */
 	config?(config: InlineConfig): InlineConfig | void;
+	/**
+	 * 'builder' (default) builds every environment via Vite's createBuilder();
+	 * 'build' runs the single vite build() pipeline — pin it when the project's
+	 * real build command is a plain `vite build`, whose output can legitimately
+	 * differ from the builder path.
+	 */
+	strategy?: 'builder' | 'build';
 };
 
 export type BuildArtifact = {
@@ -182,6 +189,12 @@ export type BuildHandle = {
 export type BuildRecord = {
 	id: string;
 	strategy: 'builder' | 'build';
+	/**
+	 * The NODE_ENV the host process carried when this build started, or null
+	 * when unset (vite then resolves production itself). Faithfulness evidence:
+	 * plugins gate production-only output on it.
+	 */
+	nodeEnv: string | null;
 	environments: string[];
 	/** Per-environment output directory relative to the runner root. */
 	outDirs: Record<string, string>;

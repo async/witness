@@ -3,6 +3,7 @@ import path from 'pathe';
 import { afterEach, describe, expect, test } from 'vitest';
 import { discoverBoxes, runBoxes } from '../src/index.ts';
 import type { DiscoveredBox } from '../src/index.ts';
+import { withUnsetNodeEnv } from './support/host-env.ts';
 import { fileSystem } from './support/host-file-system.ts';
 
 const FIXTURES_DIR = fileURLToPath(new URL('./fixtures', import.meta.url));
@@ -35,6 +36,7 @@ type ReceiptBox = {
 	builds: Array<{
 		id: string;
 		strategy: string;
+		nodeEnv: string | null;
 		environments: string[];
 		outDirs: Record<string, string>;
 		artifacts: Array<{ path: string; bytes: number }>;
@@ -656,6 +658,54 @@ describe('gumbox runtime', () => {
 					(entry) => entry.name === 'response.matches' && entry.status === 'failed',
 				),
 			).toBe(true);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'discovery does not leak its NODE_ENV into the build the user would run',
+		async () => {
+			// A plain `gumbox` shell launch carries no NODE_ENV; discovery's
+			// module runner sets one as a side effect and must clean it up, so
+			// the build resolves production exactly like the user's own
+			// `vite build` command would.
+			await withUnsetNodeEnv(async () => {
+				const root = await createFixtureProject('build');
+				const boxes = await selectBoxes(root, 'build artifacts include no server secret');
+				const result = await runBoxes({ root, boxes, fileSystem });
+
+				expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+				const recordedEnv = await fileSystem.readTextFile(
+					path.join(root, 'dist', 'client', 'node-env.txt'),
+				);
+				expect(recordedEnv).toBe('production');
+
+				// The receipt records what the build saw (null = unset).
+				const receipt = JSON.parse(
+					await fileSystem.readTextFile(result.receiptPath),
+				) as ReceiptJson;
+				expect(receipt.boxes[0]!.builds[0]!.nodeEnv).toBe(null);
+			});
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'pins the single vite build pipeline when a box requests strategy build',
+		async () => {
+			const root = await createFixtureProject('build');
+			const boxes = await selectBoxes(
+				root,
+				'single build strategy runs the plain vite build pipeline',
+			);
+			const result = await runBoxes({ root, boxes, fileSystem });
+
+			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+
+			const receipt = JSON.parse(
+				await fileSystem.readTextFile(result.receiptPath),
+			) as ReceiptJson;
+			expect(receipt.boxes[0]!.builds[0]!.strategy).toBe('build');
 		},
 		TEST_TIMEOUT_MS,
 	);

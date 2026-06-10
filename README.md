@@ -2,16 +2,21 @@
 
 **See what your Vite pipeline is actually doing — and keep the receipts.**
 
-Your Vite pipeline does an enormous amount of invisible work: it serves routes, transforms
-modules, hot-updates environments, isolates SSR from the client, emits build artifacts. When any
-of that goes wrong, you find out indirectly — a stale page, a missing asset, a 404 after deploy
-— and you debug it with `console.log` and squinting. Gumbox makes the pipeline observable: you
-declare what you expect it to do, Gumbox runs your real pipeline and proves what it actually
-did, and every run writes a **receipt** you (or CI, or an AI agent) can read later.
+You save a file and the page stays stale. You restart the dev server and now it works — this
+time. It worked in dev, then 404'd in production. Every Vite developer knows the ritual:
+restart, hard-refresh, `console.log`, pray 🙏.
+
+Vite knew exactly what happened the whole time. It just never told you.
+
+Gumbox makes it tell you. Describe what your pipeline should do, and Gumbox runs the real
+thing — your config, your plugins, your environments — and proves what it actually did. Every
+run writes a **receipt**: evidence you, CI, or an AI agent can act on.
 
 > ⚠️ **Pre-release.** Gumbox is under active development and not yet published to npm. The API
-> below follows the [specs](./specs/README.md), which are the product truth; some pieces are
+> below follows the [specs](./specs/README.md), which are the product truth — some pieces are
 > still landing (see [What works today](#what-works-today)).
+>
+> This project is designed by Jack, implemented by **Mythos**, with **Codex** serving as its reviewer.
 
 ## The problem: your Vite pipeline is a black box
 
@@ -74,16 +79,16 @@ restarted, what the browser console said.
 
 HMR is just one receipt class. The same box shape answers the rest of the list above:
 
-| Question                                                            | Recipe below                                                  |
-| ------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Does the route render, with assets loading and a clean console?      | ["Does this route actually work?"](#does-this-route-actually-work) |
-| Did my edit hot-update, full-reload, or silently do nothing?         | ["Does HMR still work?"](#does-hmr-still-work)                |
-| Did a server-only edit leave the browser alone?                      | ["Does a server-only edit leave the browser alone?"](#does-a-server-only-edit-leave-the-browser-alone) |
-| Did the config edit restart the server with the new plugin active?   | ["Does editing vite.config restart the server…"](#does-editing-viteconfig-restart-the-server-with-the-new-plugin) |
-| Does SSR render and hydrate without console errors?                  | ["Does SSR render and hydrate cleanly?"](#does-ssr-render-and-hydrate-cleanly) |
-| Does the **built** app behave like dev?                              | ["Does the BUILT app still work?"](#does-the-built-app-still-work-devbuildpreview-parity) |
-| Are the artifacts right — manifest, chunks, no stale placeholders?   | ["Did my refactor leave Node-only code…"](#did-my-refactor-leave-node-only-code-in-the-worker-bundle-agent-oracle) |
-| Did this workflow stay inside a performance budget?                  | ["How slow is this, really?"](#how-slow-is-this-really-performance-receipts) |
+| Question                                                           | Recipe below                                                                                                       |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Does the route render, with assets loading and a clean console?    | ["Does this route actually work?"](#does-this-route-actually-work)                                                 |
+| Did my edit hot-update, full-reload, or silently do nothing?       | ["Does HMR still work?"](#does-hmr-still-work)                                                                     |
+| Did a server-only edit leave the browser alone?                    | ["Does a server-only edit leave the browser alone?"](#does-a-server-only-edit-leave-the-browser-alone)             |
+| Did the config edit restart the server with the new plugin active? | ["Does editing vite.config restart the server…"](#does-editing-viteconfig-restart-the-server-with-the-new-plugin)  |
+| Does SSR render and hydrate without console errors?                | ["Does SSR render and hydrate cleanly?"](#does-ssr-render-and-hydrate-cleanly)                                     |
+| Does the **built** app behave like dev?                            | ["Does the BUILT app still work?"](#does-the-built-app-still-work-devbuildpreview-parity)                          |
+| Are the artifacts right — manifest, chunks, no stale placeholders? | ["Did my refactor leave Node-only code…"](#did-my-refactor-leave-node-only-code-in-the-worker-bundle-agent-oracle) |
+| Did this workflow stay inside a performance budget?                | ["How slow is this, really?"](#how-slow-is-this-really-performance-receipts)                                       |
 
 ## Core ideas (read this first)
 
@@ -171,8 +176,8 @@ box('name', async ({ environment, browser, project, pipeline, expect, receipt })
 ### `environment` — talk to your Vite environments
 
 Environment names come from your Vite config, not from Gumbox. A plain app has `client` and
-`ssr`; a framework project might add `rsc`, `edge`, or `worker`. Each environment only exposes
-what it can actually do:
+`ssr`, while a framework project might add `rsc`, `edge`, or `worker`. Each environment only
+exposes what it can actually do:
 
 ```ts
 const page = await environment.client.visit('/demo'); // browser-capable: open a real page
@@ -333,7 +338,7 @@ await expect.page.outcome(page, {
 });
 ```
 
-Numeric fields are exact counts; omitted fields aren't checked. When a framework fires the same
+Numeric fields are exact counts, and omitted fields aren't checked. When a framework fires the same
 event name for unrelated reasons, scope the count with
 `events: { name: { atLeast: 1, detailIncludes: '"label":"even"' } }`.
 
@@ -357,7 +362,7 @@ const html = await environment.ssr.request('/');
 await expect.html.contains(html, '<main');
 ```
 
-All `expect.*` waits are bounded; pass `{ timeoutMs }` as the last argument to adjust one
+All `expect.*` waits are bounded — pass `{ timeoutMs }` as the last argument to adjust one
 assertion.
 
 ### `receipt` — name the moments that matter
@@ -545,7 +550,7 @@ export default box('large route reload budget', async ({ browser, receipt }) => 
 ```
 
 Declarative `expect.performance.*` budgets (duration, request counts, invalidation breadth) are
-specced for a later slice; `receipt.measure` works today.
+specced for a later slice — `receipt.measure` works today.
 
 ### "Show me a UI state" (the visual-state pattern)
 
@@ -572,7 +577,7 @@ receipt.
 ## Box files and options
 
 - Box files end in `.box.ts` or `.box.tsx` and are discovered anywhere under your Vite root.
-- `export default box(...)` is the common case; named exports are fine when one file groups
+- `export default box(...)` is the common case, and named exports are fine when one file groups
   related scenarios.
 - The options form takes small, receipt-oriented metadata:
 
@@ -628,7 +633,7 @@ Every run writes a receipt directory under `.gumbox/receipts/`. The receipt reco
 - build artifacts and assertion results — passed _and_ failed
 
 Treat receipts as generated output: read them, link them in PRs, feed them to agents — but
-never hand-edit them. When a box fails, start at the printed receipt path; it usually answers
+never hand-edit them. When a box fails, start at the printed receipt path — it usually answers
 "what did Vite actually do?" before you reach for a debugger.
 
 ## What Gumbox is **not**
@@ -642,9 +647,9 @@ Knowing the boundaries saves you from using the wrong tool:
 | Cross-page user-flow automation                                                                    | Playwright          |
 | Proof that **your Vite pipeline** (dev, HMR, SSR, environments, build, preview, artifacts) behaves | **Gumbox**          |
 
-The non-overlap is causality: Playwright can see the page; Gumbox connects the page back to the
-chain of Vite events that produced it (`edit → environment hot-updated → SSR untouched → DOM
-changed without reload → receipt`).
+The non-overlap is causality: Playwright can see the page, but only Gumbox connects it back to
+the chain of Vite events that produced it (`edit → environment hot-updated → SSR untouched →
+DOM changed without reload → receipt`).
 
 ## What works today
 

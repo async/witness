@@ -623,7 +623,7 @@ tasks:
   - id: T021
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     objective: "qwik-bundler integration phase 3 (cutover): replace smoke-vite-router-browser, smoke-vite-ssg, check-hmr-leakage with boxes; rewire qwik-bundler package.json test:* scripts to the gumbox CLI; delete scripts/ (incl. with-lock — gumbox owns serialization) once every replacement box runs green."
     allowed_files: []
     verify: []

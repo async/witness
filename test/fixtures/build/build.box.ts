@@ -48,3 +48,16 @@ export const LeakDetector = box(
 		});
 	},
 );
+
+export const SingleBuildStrategy = box(
+	{ name: 'single build strategy runs the plain vite build pipeline', tags: ['build'] },
+	async ({ pipeline, expect }) => {
+		// strategy 'build' pins the single vite build() path for projects whose
+		// real pipeline is a plain `vite build` command.
+		const build = await pipeline.build({ strategy: 'build' });
+		if (build.strategy !== 'build') {
+			throw new Error(`expected single-build strategy, observed '${build.strategy}'`);
+		}
+		await expect.artifact.exists(build, 'dist/client/index.html');
+	},
+);

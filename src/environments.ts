@@ -1,7 +1,7 @@
-import { isFetchableDevEnvironment, isRunnableDevEnvironment } from 'vite';
 import type { DevEnvironment, ViteDevServer } from 'vite';
 import type { PageHandle, VisitArgs } from './browser.ts';
 import type { EnvironmentFetchInit, EnvironmentHandle, EnvironmentResponse } from './types.ts';
+import type { ViteModule } from './vite-loader.ts';
 
 export type EnvironmentRuntime = {
 	handles: Record<string, EnvironmentHandle>;
@@ -40,6 +40,9 @@ async function toEnvironmentResponse(args: {
 }
 
 export function createEnvironmentRuntime(
+	// The project's own vite module: capability guards must come from the same
+	// instance that created the server's environments.
+	vite: Pick<ViteModule, 'isFetchableDevEnvironment' | 'isRunnableDevEnvironment'>,
 	server: ViteDevServer,
 	onTimeline: (type: string, detail: Record<string, unknown>) => void,
 	visitPage: (args: VisitArgs) => Promise<PageHandle>,
@@ -86,7 +89,7 @@ export function createEnvironmentRuntime(
 					}
 					return body;
 				}
-				if (isFetchableDevEnvironment(environment)) {
+				if (vite.isFetchableDevEnvironment(environment)) {
 					onTimeline('environment requested', { environment: name, path: requestPath });
 					const response = await environment.dispatchFetch(
 						new Request(new URL(requestPath, serverUrl)),
@@ -109,7 +112,7 @@ export function createEnvironmentRuntime(
 						url,
 						init?.headers === undefined ? {} : { headers: init.headers },
 					);
-				} else if (isFetchableDevEnvironment(environment)) {
+				} else if (vite.isFetchableDevEnvironment(environment)) {
 					onTimeline('environment requested', { environment: name, path: requestPath });
 					response = await environment.dispatchFetch(
 						new Request(
@@ -137,7 +140,7 @@ export function createEnvironmentRuntime(
 				return evidence;
 			},
 			import: async <T = Record<string, unknown>>(id: string): Promise<T> => {
-				if (!isRunnableDevEnvironment(environment)) {
+				if (!vite.isRunnableDevEnvironment(environment)) {
 					const hint =
 						name === browserName
 							? ` Use environment.${name}.request(path) instead.`

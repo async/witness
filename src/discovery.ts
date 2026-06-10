@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'mlly';
 import path from 'pathe';
 import { glob } from 'tinyglobby';
-import { runnerImport } from 'vite';
+import { loadProjectVite, withoutNodeEnvLeak } from './vite-loader.ts';
 import { isBoxDefinition } from './box.ts';
 import type { BoxDefinition, DiscoveredBox, DiscoveryResult, InvalidBoxFile } from './types.ts';
 
@@ -52,16 +52,21 @@ export async function discoverBoxes(options: { root: string }): Promise<Discover
 	const root = path.resolve(options.root);
 	const boxes: DiscoveredBox[] = [];
 	const invalid: InvalidBoxFile[] = [];
+	const vite = await loadProjectVite(root);
 	for (const file of await collectBoxFiles(root)) {
 		const relativeFile = path.relative(root, file).split(path.sep).join('/');
 		try {
-			const { module } = await runnerImport<Record<string, unknown>>(file, {
-				root,
-				logLevel: 'error',
-				resolve: {
-					alias: { gumbox: gumboxEntryFile() },
-				},
-			});
+			// The module runner sets NODE_ENV when unset; discovery is gumbox
+			// machinery and must not change what the user's pipeline later sees.
+			const { module } = await withoutNodeEnvLeak(() =>
+				vite.runnerImport<Record<string, unknown>>(file, {
+					root,
+					logLevel: 'error',
+					resolve: {
+						alias: { gumbox: gumboxEntryFile() },
+					},
+				}),
+			);
 			const exported = Object.entries(module).filter(
 				(entry): entry is [string, BoxDefinition] => isBoxDefinition(entry[1]),
 			);

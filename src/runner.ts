@@ -1,5 +1,4 @@
 import path from 'pathe';
-import { createServer } from 'vite';
 import type { FSWatcher, InlineConfig, ViteDevServer } from 'vite';
 import { createBrowserEvidence, missingBrowserCapabilityError } from './browser.ts';
 import type { GumboxBrowser, PageHandle } from './browser.ts';
@@ -8,6 +7,7 @@ import { discoverBoxes } from './discovery.ts';
 import { createEnvironmentRuntime } from './environments.ts';
 import type { EnvironmentRuntime } from './environments.ts';
 import { connectHotWebSocket, createEvidencePlugin, EvidenceStore } from './evidence.ts';
+import { loadProjectVite, withoutNodeEnvLeak } from './vite-loader.ts';
 import { createExpectApi } from './expect.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
 import { startPipelinePreview } from './preview.ts';
@@ -167,11 +167,13 @@ async function runSingleBox(args: {
 			if (devOptions?.config !== undefined) {
 				inline = devOptions.config(inline) ?? inline;
 			}
-			const server = await createServer(inline);
+			const vite = await loadProjectVite(root);
+			const server = await vite.createServer(inline);
 			state.server = server;
 			await server.listen();
 			await waitForWatcherReady(server.watcher, 10_000);
 			const runtime = createEnvironmentRuntime(
+				vite,
 				server,
 				(type, detail) => recorder.timeline(type, detail),
 				(visitArgs) => browserEvidence.visit(visitArgs),
@@ -423,17 +425,22 @@ export async function runBoxes(options: RunBoxesOptions): Promise<RunBoxesResult
 	const results: BoxRunResult[] = [];
 	const boxReceipts: Record<string, unknown>[] = [];
 	for (const [index, discovered] of boxes.entries()) {
-		const { result, receipt } = await runSingleBox({
-			discovered,
-			root,
-			runDir,
-			receiptPath,
-			boxIndex: index + 1,
-			assertionTimeoutMs: options.assertionTimeoutMs ?? DEFAULT_ASSERTION_TIMEOUT_MS,
-			fileSystem,
-			browser: options.browser,
-			headless: options.headless ?? true,
-		});
+		// Every box starts from the env the operator launched gumbox with:
+		// Vite's own phases mutate NODE_ENV (dev sets development, build sets
+		// production) and one box's pipeline must not bleed into the next.
+		const { result, receipt } = await withoutNodeEnvLeak(() =>
+			runSingleBox({
+				discovered,
+				root,
+				runDir,
+				receiptPath,
+				boxIndex: index + 1,
+				assertionTimeoutMs: options.assertionTimeoutMs ?? DEFAULT_ASSERTION_TIMEOUT_MS,
+				fileSystem,
+				browser: options.browser,
+				headless: options.headless ?? true,
+			}),
+		);
 		results.push(result);
 		boxReceipts.push(receipt);
 	}
