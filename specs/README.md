@@ -37,8 +37,8 @@ The authoring model follows Vite 8:
 
 - `environment.<name>` is generated from the user's resolved Vite environments.
 - `browser` is an ergonomic alias for the default client/browser environment.
-- `expect.environment.<name>` asserts environment-specific receipt evidence.
-- `expect.browser` aliases the default client/browser environment assertions.
+- `expect.edit(change, { <name>: ... })` asserts environment-specific receipt
+  evidence declaratively, in the receipt's own vocabulary.
 
 ## Canonical Use Cases
 

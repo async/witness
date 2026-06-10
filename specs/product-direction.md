@@ -28,8 +28,9 @@ box('message updates without reload', async ({ browser, project, expect }) => {
 		replace: ['before', 'after'],
 	});
 
-	await expect.browser.hotUpdate(change);
-	await expect.browser.noFullReload(change);
+	await expect.edit(change, {
+		client: { hmr: 'accepted' },
+	});
 	await expect.page.text(page, '#message', 'after');
 });
 ```
@@ -38,7 +39,7 @@ box('message updates without reload', async ({ browser, project, expect }) => {
 
 ```ts
 environment.<name>
-expect.environment.<name>
+expect.edit(change, { <name>: expectation })
 ```
 
 Those names come from the user's resolved Vite environments.
@@ -248,7 +249,6 @@ The default browser/client environment receives an ergonomic alias:
 
 ```ts
 browser === environment.client;
-expect.browser === expect.environment.client;
 ```
 
 If a project uses a different name for its browser-capable environment, Gumbox
@@ -372,8 +372,9 @@ const change = await project.edit('src/message.ts', {
 	replace: ['before', 'after'],
 });
 
-await expect.browser.hotUpdate(change);
-await expect.browser.noFullReload(change);
+await expect.edit(change, {
+	client: { hmr: 'accepted' },
+});
 await expect.page.text(page, '#message', 'after');
 ```
 
@@ -384,8 +385,7 @@ const change = await project.edit.config({
 	replace: ['oldPlugin()', 'newPlugin()'],
 });
 
-await expect.pipeline.serverRestarted(change);
-await expect.environment.client.plugin('new-plugin');
+await expect.edit(change, { server: 'restarted' });
 ```
 
 Gumbox should correlate each edit with environment events:

@@ -35,8 +35,9 @@ export default box('message updates without reload', async ({ browser, project, 
 		replace: ['before', 'after'],
 	});
 
-	await expect.browser.hotUpdate(change);
-	await expect.browser.noFullReload(change);
+	await expect.edit(change, {
+		client: { hmr: 'accepted' },
+	});
 	await expect.page.text(page, '#message', 'after');
 });
 ```
@@ -53,7 +54,7 @@ export const Hmr = box('message hmr', async ({ browser, project, expect }) => {
 		replace: ['before', 'after'],
 	});
 
-	await expect.browser.hotUpdate(change);
+	await expect.edit(change, { client: { hmr: 'accepted' } });
 	await expect.page.text(page, '#message', 'after');
 });
 
@@ -196,7 +197,7 @@ const change = await project.edit('src/dev/cart-state.json', {
 
 const page = await browser.visit('/cart');
 
-await expect.browser.hotUpdate(change);
+await expect.edit(change, { client: { hmr: 'accepted' } });
 await expect.page.text(page, '[data-cart-count]', '0');
 ```
 
@@ -267,8 +268,11 @@ In a normal Vite app:
 
 ```ts
 browser === environment.client;
-expect.browser === expect.environment.client;
 ```
+
+(Assertions need no alias: `expect.edit` names environments by their real Vite
+names, and the receipt records which environment the `browser` alias resolved
+to.)
 
 If the project names its browser-capable environment differently, Gumbox should
 resolve `browser` to that environment and record the alias target in the
@@ -313,8 +317,9 @@ const change = await project.edit('src/message.ts', {
 	replace: ['before', 'after'],
 });
 
-await expect.browser.hotUpdate(change);
-await expect.browser.noFullReload(change);
+await expect.edit(change, {
+	client: { hmr: 'accepted' },
+});
 ```
 
 Config edits should be just as direct:
@@ -324,7 +329,7 @@ const change = await project.edit.config({
 	replace: ['oldPlugin()', 'newPlugin()'],
 });
 
-await expect.pipeline.serverRestarted(change);
+await expect.edit(change, { server: 'restarted' });
 ```
 
 Core operations:
@@ -439,27 +444,38 @@ Gumbox should expose one assertion object: `expect`.
 
 Do not split proving across `should` options on edits, `assert.dom`,
 `assert.vite`, and ad hoc assertion helpers. Do not make callable
-`expect(subject)` the main style. Object namespaces are easier to autocomplete
-and easier for AI agents to generate consistently.
+`expect(subject)` the main style.
 
-Recommended namespaces:
+The core design rule (user directive 2026-06-10): **an assertion is a partial
+receipt**. The author declares the outcome they expect as data, in the same
+vocabulary the receipt records, and Gumbox diffs expectation against evidence.
+Method-per-fact assertion grammars (`hotUpdate`, `noFullReload`, `invalidated`,
+`notInvalidated`, `customPayload`, `cleanConsole`, `noNavigations`) were
+rejected as unpredictable: authors cannot guess method names, negation hides in
+`no*`/`not*`/`clean*` prefixes, and `customPayload` leaks Vite's wire format.
 
-- `expect.browser.*`
-- `expect.environment.<name>.*`
-- `expect.pipeline.*`
-- `expect.page.*`
-- `expect.build.*`
-- `expect.artifact.*`
-- `expect.html.*`
-- `expect.performance.*`
+Namespaces:
+
+- `expect.edit(change, expectation, wait?)` — the only edit/HMR assertion
+- `expect.page.*` — DOM waits plus one declarative `outcome` check
+- `expect.build.*`, `expect.artifact.*` — build evidence
+- `expect.html.*`, `expect.response.*` — request evidence
+- `expect.performance.*` — reserved for performance receipts
 
 Rejected core namespaces:
 
-- `expect.edit.*`
+- `expect.browser.*` / `expect.environment.<name>.*` (method-grammar
+  assertions; superseded by `expect.edit`)
+- `expect.pipeline.*` (folded into `expect.edit`'s `server` key)
+- `expect.edit.*` as a method namespace (`expect.edit` is a callable, not a
+  bucket of methods)
 - `expect.vite.*`
 - `expect.view.*`
 
-Edit outcomes should be asserted against the environment that reacted:
+### `expect.edit`
+
+One call describes the whole expected reaction to one edit, across every
+environment the author cares about:
 
 ```ts
 const page = await browser.visit('/demo');
@@ -467,34 +483,86 @@ const change = await project.edit('src/message.ts', {
 	replace: ['before', 'after'],
 });
 
-await expect.browser.hotUpdate(change);
-await expect.browser.noFullReload(change);
-await expect.browser.invalidated(change, '/src/message.ts');
+await expect.edit(change, {
+	client: {
+		hmr: 'accepted',
+		invalidated: ['/src/message.ts'],
+	},
+	ssr: { invalidated: [] },
+});
 await expect.page.text(page, '#message', 'after');
 ```
 
-Custom environment assertions should stay explicit:
+Gumbox waits until every named environment settles its reaction, then diffs
+the expectation against the recorded outcome and reports **all** mismatches at
+once, with the receipt path.
 
-```ts
-await environment.rsc.import('/src/entry.rsc.ts');
+Expectation vocabulary (identical to the receipt's `EnvironmentEditOutcome`):
 
-const change = await project.edit('src/server-only.ts', {
-	replace: ['before', 'after'],
-});
+- `hmr: 'accepted' | 'full-reload' | 'none'` — how the environment reacted.
+  `'accepted'` means an HMR update was applied with no full reload;
+  `'full-reload'` means the environment reloaded (browser document or server
+  module runner); `'none'` means the environment observed the change and did
+  nothing.
+- `invalidated: string[]` — module paths that must be among the invalidated
+  modules (suffix matching). `invalidated: []` asserts nothing was
+  invalidated.
+- `messages: string[]` — names of framework hot-channel messages that must
+  have been broadcast (for example `'qwik:hmr'`). This replaces the rejected
+  `customPayload` wording: authors think "the framework sent its own HMR
+  message", not "a custom payload arrived".
+- Naming an environment implies `error: null` (fail closed). Expecting an
+  error is explicit: `error: { plugin: 'debug-plugin' }`.
+- Omitted field: don't care. Omitted environment: not asserted, still
+  recorded.
+- Escape hatch: an environment value may be a predicate
+  `(outcome) => boolean | Promise<boolean>` for evidence checks the
+  vocabulary cannot express. Document as advanced; never in first examples.
 
-await expect.environment.rsc.invalidated(change);
-await expect.environment.client.notInvalidated(change);
-```
-
-Config and pipeline assertions:
+Pipeline reactions use the reserved top-level `server` key, so config and
+env-file edits are asserted in the same call:
 
 ```ts
 const change = await project.edit.config({
-	replace: ['debugPlugin(false)', 'debugPlugin(true)'],
+	replace: ['oldPlugin()', 'newPlugin()'],
 });
 
-await expect.pipeline.serverRestarted(change);
-await expect.environment.client.plugin('debug-plugin');
+await expect.edit(change, { server: 'restarted' });
+```
+
+A Vite environment literally named `server` is a documented limitation; assert
+it via the predicate escape hatch.
+
+### `expect.page`
+
+DOM waits stay fluent — they are genuinely "wait until X" operations:
+
+```ts
+await expect.page.text(page, '#message', 'after');
+await expect.page.exists(page, '[data-cart-count]');
+await expect.page.visible(page, 'dialog');
+await expect.page.computedStyle(page, 'h1', { color: 'rgb(0, 128, 0)' });
+await expect.page.attribute(page, 'p', 'data-hmr', 'gumbox-attr');
+await expect.page.attribute(page, 'button', 'q-e:click', null); // null = absent
+await expect.page.bodyText(page, { contains: 'after' });
+await expect.page.bodyText(page, { notContains: 'before' });
+```
+
+Negation is always an option value (`null`, `notContains`), never a method
+name.
+
+Recorded page health is one declarative check, mirroring the receipt's page
+record:
+
+```ts
+await page.trackEvents('qHmr');
+// ... act ...
+await expect.page.outcome(page, {
+	navigations: 0,
+	consoleErrors: 0,
+	failedRequests: 0,
+	events: { qHmr: { atLeast: 1 } },
+});
 ```
 
 Build and artifact assertions:
@@ -508,17 +576,6 @@ await expect.build.artifact(build, 'dist/client/index.html');
 await expect.artifact.json(manifest, (json) => Object.keys(json).length > 0);
 ```
 
-Advanced users may still use an escape hatch for custom evidence checks:
-
-```ts
-await expect.environment.client.satisfies(change, (evidence) => {
-	return evidence.error?.plugin === 'debug-plugin';
-});
-```
-
-`satisfies(...)` should be documented as advanced and should not appear in first
-examples.
-
 ## Environment Evidence Model
 
 Each project edit should produce a normalized receipt model per environment.
@@ -529,15 +586,19 @@ Sketch:
 type EnvironmentEditOutcome = {
 	name: string;
 	kind: 'browser' | 'server' | 'worker' | 'custom';
-	update: boolean;
-	fullReload: boolean;
+	hmr: 'accepted' | 'full-reload' | 'none';
 	restart: boolean;
 	error: null | ViteErrorEvidence;
 	invalidated: ViteModuleEvidence[];
 	updates: ViteUpdateEvidence[];
+	messages: ViteHotMessageEvidence[]; // framework hot-channel broadcasts
 	plugins: VitePluginEvidence[];
 };
 ```
+
+The `hmr` field is the headline classification and uses the exact words the
+assertion vocabulary uses; the raw `updates`, `messages`, and reload payloads
+stay recorded underneath it.
 
 The receipt should preserve low-level Vite details:
 
@@ -554,8 +615,9 @@ The author should normally write the outcome they expect, not the raw event
 transport:
 
 ```ts
-await expect.browser.hotUpdate(change);
-await expect.browser.noFullReload(change);
+await expect.edit(change, {
+	client: { hmr: 'accepted' },
+});
 ```
 
 ## Typed Project Model
@@ -637,8 +699,9 @@ export default box('message updates without reload', async ({ browser, project, 
 		replace: ['before', 'after'],
 	});
 
-	await expect.browser.hotUpdate(change);
-	await expect.browser.noFullReload(change);
+	await expect.edit(change, {
+		client: { hmr: 'accepted' },
+	});
 	await expect.page.text(page, '#message', 'after');
 });
 ```
@@ -660,7 +723,7 @@ export default box('home SSR hydrates cleanly', async ({ environment, browser, e
 
 	const page = await browser.visit('/');
 	await expect.page.visible(page, 'main');
-	await expect.page.cleanConsole(page);
+	await expect.page.outcome(page, { consoleErrors: 0 });
 });
 ```
 
@@ -678,9 +741,10 @@ export default box(
 			replace: ['before', 'after'],
 		});
 
-		await expect.environment.ssr.invalidated(change);
-		await expect.environment.client.notInvalidated(change);
-		await expect.environment.client.noFullReload(change);
+		await expect.edit(change, {
+			ssr: { invalidated: ['/src/server-only.ts'] },
+			client: { hmr: 'none', invalidated: [] },
+		});
 	},
 );
 ```
@@ -699,8 +763,10 @@ export default box(
 			replace: ['debugPlugin({ enabled: false })', 'debugPlugin({ enabled: true })'],
 		});
 
-		await expect.pipeline.serverRestarted(change);
-		await expect.environment.client.plugin('debug-plugin');
+		await expect.edit(change, {
+			server: 'restarted',
+			client: (outcome) => outcome.plugins.some((p) => p.name === 'debug-plugin'),
+		});
 
 		const page = await browser.visit('/demo');
 		await expect.page.exists(page, '[data-debug-plugin]');
@@ -775,11 +841,15 @@ export default box(
 			replace: ['before', 'after'],
 		});
 
-		await expect.browser.hotUpdate(change);
-		await expect.environment.client.singleModuleIdentity(change, {
-			file: 'packages/ui/src/message.ts',
+		await expect.edit(change, {
+			client: {
+				hmr: 'accepted',
+				invalidated: ['packages/ui/src/message.ts'],
+				// no module resolved to two graph identities; [] = none,
+				// following the invalidated: [] convention
+				duplicatedModules: [],
+			},
 		});
-		await expect.environment.client.noDuplicateModules(change);
 	},
 );
 ```
@@ -835,7 +905,7 @@ export default box('worker build has no node runtime assumptions', async ({ pipe
 	const preview = await pipeline.preview(build);
 	const page = await preview.browser.visit('/dashboard');
 
-	await expect.page.cleanConsole(page);
+	await expect.page.outcome(page, { consoleErrors: 0 });
 	await expect.page.text(page, 'h1', 'Dashboard');
 });
 ```
@@ -965,15 +1035,19 @@ Not:
 await visit('/demo');
 ```
 
-### No `expect.edit`
+### No `expect.edit.*` Method Namespace
 
-Edits do not react; environments react to edits.
+Edits do not react; environments react to edits. `expect.edit(change, ...)` is
+a callable that _declares the expected environment reactions_ — it must not
+grow assertion methods of its own.
 
 Use:
 
 ```ts
-await expect.browser.hotUpdate(change);
-await expect.environment.ssr.invalidated(change);
+await expect.edit(change, {
+	client: { hmr: 'accepted' },
+	ssr: { invalidated: ['/src/message.ts'] },
+});
 ```
 
 Not:
@@ -981,6 +1055,9 @@ Not:
 ```ts
 await expect.edit.hotUpdate(change);
 ```
+
+(The per-environment method grammar `expect.browser.hotUpdate(change)` was
+also rejected — user directive 2026-06-10; see the Expect API section.)
 
 ### No `vite.client` / `vite.ssr`
 
@@ -1033,10 +1110,10 @@ Gumbox puts project edits and environment evidence at the center:
 box('config change works', async ({ browser, project, expect }) => {
 	const change = await project.edit.config(replacePluginConfig);
 
-	await expect.pipeline.serverRestarted(change);
+	await expect.edit(change, { server: 'restarted' });
 
 	const page = await browser.visit('/demo');
-	await expect.page.cleanConsole(page);
+	await expect.page.outcome(page, { consoleErrors: 0 });
 });
 ```
 
@@ -1047,7 +1124,7 @@ box('config change works', async ({ browser, project, expect }) => {
 - Which Vite environment capabilities can be inferred statically, and which
   must be discovered at runtime?
 - How much plugin causality can the MVP capture without Vite core changes?
-- Should `project.edit.config(...)` imply `expect.pipeline.serverRestarted(...)`
+- Should `project.edit.config(...)` imply `expect.edit(change, { server: 'restarted' })`
   as a default expectation?
 - Should config overlays be allowed in preview and build modes?
 - Should raw browser access ship in MVP or wait until after the first
