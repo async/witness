@@ -6,9 +6,9 @@
 import { createHostBrowser } from './browser-host.ts';
 import {
 	createHostFileSystem,
+	exitHost,
 	getHostCommandLineArgs,
 	getHostWorkingDirectory,
-	setHostExitCode,
 } from './host.ts';
 import { runCli } from './run-cli.ts';
 
@@ -20,4 +20,5 @@ const exitCode = await runCli(getHostCommandLineArgs(), {
 	stdout: (line) => console.log(line),
 	stderr: (line) => console.error(line),
 });
-setHostExitCode(exitCode);
+// Force the exit: fixture pipelines may leak open handles past server.close().
+await exitHost(exitCode);

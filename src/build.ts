@@ -34,11 +34,15 @@ function resolveCreateBuilder(): CreateBuilderFn | undefined {
 	return typeof candidate === 'function' ? (candidate as CreateBuilderFn) : undefined;
 }
 
-function relativeOutDir(root: string, outDir: string | undefined): string {
-	if (outDir === undefined) {
-		return 'dist';
-	}
-	return path.isAbsolute(outDir) ? path.relative(root, outDir) : outDir;
+/**
+ * Normalizes an environment's outDir to a runner-root-relative path. A box
+ * may overlay the build root to a project subdirectory (a fixture app), so a
+ * config-relative outDir like 'dist/client' really lives under that build
+ * root; receipts and expect.artifact.* always speak runner-root paths.
+ */
+function relativeOutDir(root: string, buildRoot: string, outDir: string | undefined): string {
+	const absoluteOutDir = path.resolve(buildRoot, outDir ?? 'dist');
+	return path.relative(root, absoluteOutDir).split(path.sep).join('/');
 }
 
 async function scanArtifacts(
@@ -87,6 +91,8 @@ export async function runPipelineBuild(args: {
 	if (options?.config !== undefined) {
 		inline = options.config(inline) ?? inline;
 	}
+	// The Vite root the build actually runs from (a box may overlay it).
+	const buildRoot = path.resolve(root, inline.root ?? root);
 	const createBuilder = resolveCreateBuilder();
 	const strategy: BuildRecord['strategy'] = createBuilder === undefined ? 'build' : 'builder';
 	const startedAt = new Date().toISOString();
@@ -100,14 +106,18 @@ export async function runPipelineBuild(args: {
 		environments = Object.keys(builder.environments);
 		await builder.buildApp();
 		for (const name of environments) {
-			outDirs[name] = relativeOutDir(root, builder.environments[name]?.config.build?.outDir);
+			outDirs[name] = relativeOutDir(
+				root,
+				buildRoot,
+				builder.environments[name]?.config.build?.outDir,
+			);
 			onTimeline('build environment completed', { environment: name, outDir: outDirs[name] });
 		}
 	} else {
 		// Compatibility fallback: build() runs only the default client pipeline.
 		await build(inline);
 		environments = ['client'];
-		outDirs['client'] = relativeOutDir(root, inline.build?.outDir);
+		outDirs['client'] = relativeOutDir(root, buildRoot, inline.build?.outDir);
 		onTimeline('build environment completed', {
 			environment: 'client',
 			outDir: outDirs['client'],

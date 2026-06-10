@@ -481,6 +481,32 @@ describe('gumbox runtime', () => {
 	);
 
 	test(
+		'records build artifacts relative to the runner root when the build root is overlaid',
+		async () => {
+			const root = await createFixtureProject('nested');
+			const boxes = await selectBoxes(
+				root,
+				'app subdirectory build records runner-root-relative artifacts',
+			);
+			const result = await runBoxes({ root, boxes, fileSystem });
+
+			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+
+			const receipt = JSON.parse(
+				await fileSystem.readTextFile(result.receiptPath),
+			) as ReceiptJson;
+			const buildRecord = receipt.boxes[0]!.builds[0]!;
+			// The fixture app builds into app/dist; receipt paths stay relative
+			// to the runner root so they line up with expect.artifact.* paths.
+			expect(buildRecord.outDirs['client']).toBe('app/dist');
+			const artifactPaths = buildRecord.artifacts.map((artifact) => artifact.path);
+			expect(artifactPaths).toContain('app/dist/index.html');
+			expect(buildRecord.artifacts.every((artifact) => artifact.bytes > 0)).toBe(true);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
 		'builds every environment via createBuilder and scans artifacts for forbidden strings',
 		async () => {
 			const root = await createFixtureProject('build');

@@ -10,9 +10,25 @@ if (target) {
 // event-driven wait for "at least N events" always settles.
 if (location.search.includes('events=1')) {
 	let tick = 0;
+	const circular: Record<string, unknown> = {};
+	circular.self = circular;
 	setInterval(() => {
 		tick += 1;
 		document.dispatchEvent(new CustomEvent('fixture:ping', { detail: { tick } }));
+		// A deliberately gnarly detail — DOM node plus circular reference — the
+		// way real frameworks decorate events (qwik's qsymbol carries the target
+		// element). Tracked-event evidence must survive serialization instead of
+		// degrading to '[object Object]'.
+		document.dispatchEvent(
+			new CustomEvent('fixture:gnarly', {
+				detail: {
+					label: tick % 2 === 0 ? 'even' : 'odd',
+					tick,
+					node: document.querySelector('#counter'),
+					circular,
+				},
+			}),
+		);
 	}, 100);
 }
 

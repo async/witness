@@ -25,3 +25,22 @@ export default box(
 		await receipt.capture('after nested hmr update');
 	},
 );
+
+// Builds with an overlaid root (the qwik-bundler fixture shape again) must
+// still record their artifacts: outDirs and artifact paths are runner-root
+// relative so expect.artifact.* and the receipt agree on one base.
+export const NestedBuild = box(
+	{ name: 'app subdirectory build records runner-root-relative artifacts', modes: ['build'] },
+	async ({ pipeline, expect }) => {
+		const build = await pipeline.build({
+			config: (config) => ({ ...config, root: `${config.root}/app` }),
+		});
+
+		await expect.build.environment(build, 'client');
+		await expect.build.artifact(build, 'app/dist/index.html');
+		await expect.artifact.exists(build, 'app/dist/index.html');
+		await expect.artifact.text(build, 'app/dist/index.html', {
+			contains: 'Gumbox nested fixture',
+		});
+	},
+);

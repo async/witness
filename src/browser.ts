@@ -187,6 +187,21 @@ export function trackedEventCountExpression(eventName: string): string {
 }
 
 /**
+ * Expression for how many tracked events of one name carry the needle in
+ * their JSON-serialized detail. Stored details are already JSON-safe, so the
+ * in-page stringify cannot throw.
+ */
+export function trackedEventMatchCountExpression(eventName: string, needle: string): string {
+	const occurrences = `((${TRACKED_EVENTS_GLOBAL} || {})[${JSON.stringify(eventName)}] || [])`;
+	return `(${occurrences}.filter((occurrence) => JSON.stringify(occurrence.detail === undefined ? null : occurrence.detail).includes(${JSON.stringify(needle)})).length)`;
+}
+
+/** True when this tracked occurrence's serialized detail contains the needle. */
+export function trackedEventMatchesDetail(event: TrackedPageEvent, needle: string): boolean {
+	return JSON.stringify(event.detail ?? null).includes(needle);
+}
+
+/**
  * Installs an in-page listener that records every occurrence of the event
  * with a page-side timestamp and a JSON-safe copy of `event.detail`.
  * Capture-phase listeners on both window and document catch window-, document-
@@ -199,16 +214,38 @@ function trackEventScript(eventName: string): string {
 	if (store[name]) { return; }
 	store[name] = [];
 	const seen = new WeakSet();
+	// Framework event details routinely carry DOM nodes and circular
+	// references (qwik's qsymbol carries the target element); a plain
+	// JSON round trip would throw and degrade the whole detail to
+	// '[object Object]'. Replace those values with readable placeholders so
+	// the rest of the detail survives as structured receipt evidence.
+	const safeDetail = (value) => {
+		const visited = new WeakSet();
+		const replacer = (key, candidate) => {
+			if (typeof candidate === 'function') { return '[function]'; }
+			if (typeof candidate === 'bigint') { return String(candidate); }
+			if (typeof candidate === 'object' && candidate !== null) {
+				if (candidate.nodeType === 1 && typeof candidate.tagName === 'string') {
+					return '[element ' + candidate.tagName.toLowerCase() + ']';
+				}
+				if (typeof candidate.nodeType === 'number' && typeof candidate.nodeName === 'string') {
+					return '[node ' + candidate.nodeName.toLowerCase() + ']';
+				}
+				if (visited.has(candidate)) { return '[circular]'; }
+				visited.add(candidate);
+			}
+			return candidate;
+		};
+		try {
+			return JSON.parse(JSON.stringify(value === undefined ? null : value, replacer));
+		} catch {
+			return String(value);
+		}
+	};
 	const record = (event) => {
 		if (seen.has(event)) { return; }
 		seen.add(event);
-		let detail = null;
-		try {
-			detail = JSON.parse(JSON.stringify(event.detail === undefined ? null : event.detail));
-		} catch {
-			detail = String(event.detail);
-		}
-		store[name].push({ at: new Date().toISOString(), detail });
+		store[name].push({ at: new Date().toISOString(), detail: safeDetail(event.detail) });
 	};
 	window.addEventListener(name, record, true);
 	document.addEventListener(name, record, true);

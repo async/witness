@@ -544,7 +544,7 @@ tasks:
   - id: T020
     type: worker
     assignee: Worker
-    status: active
+    status: done
     objective: "qwik-bundler integration phase 2: replace the nitro SSR HMR scripts (smoke-vite-nitro-hmr, smoke-vite-nitro-remove-handler-hmr, smoke-vite-nitro-remove-signal-hmr incl. state preservation) and the workerd family (smoke-vite-workerd-hmr, smoke-vite-workerd, smoke-vite-workerd-router, smoke-vite-workerd-router-browser) with boxes; receipts must show per-fixture HMR causality across client+ssr environments."
     inputs:
       - notes/T002-qwik-bundler-scripts.md
@@ -569,7 +569,19 @@ tasks:
       - "workerd environment cannot run in this sandbox after two distinct attempts — record exact blocker, return partial."
       - "Tests only pass with blind sleeps instead of event-driven waits."
       - "Verification fails twice."
-    receipt: null
+    receipt:
+      result: done
+      note: notes/T020-findings.md
+      changed_files: ["gumbox: src/cli/{host,gumbox}.ts, src/{browser,expect,types,build}.ts, test/{browser,gumbox}.test.ts, test/fixtures/{browser,nested}/**", "qwik-bundler(gumbox-scripts 684bf89): boxes/{nitro-hmr,nitro-remove-handler-hmr,nitro-remove-signal-hmr,workerd-hmr,workerd-build,workerd-router-dev,workerd-router-browser}.box.ts, package.json (test:boxes)"]
+      commands:
+        - { cmd: "deno task test/build/check", status: pass, detail: "44/44 (3 new TDD red-first); PM re-verified independently" }
+        - { cmd: "pnpm exec gumbox (full set, qwik-bundler)", status: pass, detail: "9/9 boxes green; worker ran 3x consecutive, PM re-ran independently; fixtures git-clean" }
+        - { cmd: "falsification runs", status: pass, detail: "remove-handler fails with kept handler; remove-signal fails with injected reload; inherited nitro draft's wrong client.invalidated assertion failed against the real fixture and was fixed" }
+      summary: "All 7 remaining smoke scripts replaced; 9-box set green via linked CLI. workerd runs natively (dev + preview). Receipt audits drove 4 gumbox improvements (CLI force-exit since nitro leaks handles past server.close; safe event-detail serialization; expect.page.event detailIncludes; overlaid-root build artifact paths). Receipts now show per-edit multi-environment causality: nitro fixture shows client {0 invalidated, 3 qwik:hmr payloads, no reload} / ssr {invalidated /src/home.tsx, runner reload} / nitro {hook seen, 0 modules} with interleaved seq timeline through to browser qHmr events; workerd fixture asserts the opposite divergence (client+worker invalidate, vestigial ssr silent). State-preservation receipt: 8 clicks, both diffs, Count 8 surviving, 0 navigations."
+      out_of_scope:
+        - "smoke-vite-workerd.mjs dynamic Node import of built worker with synthetic ASSETS binding — host-runtime-specific; its product truth (built worker serves 200 SSR HTML with markers) preserved via pipeline.build + artifact assertions + preview-in-workerd."
+      notes:
+        - "Falsification audit found the original script's attribute oracle (q-e:click) settles mid-render; boxes use qHmr + qsymbol settle points instead. No sleeps anywhere."
   - id: T021
     type: worker
     assignee: Worker

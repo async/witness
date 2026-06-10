@@ -238,6 +238,65 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 	);
 
 	test(
+		'gnarly event details (DOM node, circular ref) serialize into evidence and filter by content',
+		async () => {
+			const root = await createFixtureProject();
+			const boxes = await selectBoxes(
+				root,
+				'gnarly event details serialize and filter by detail content',
+			);
+			const result = await runBoxes({ root, boxes, fileSystem, browser: hostBrowser });
+
+			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+
+			const receipt = await readReceipt(result.receiptPath);
+			const page = receipt.boxes[0]!.pages[0]!;
+			const observed = page.trackedEvents['fixture:gnarly']!;
+			expect(observed.length).toBeGreaterThanOrEqual(1);
+
+			// The detail survives as structured evidence, not '[object Object]':
+			// the DOM node and the circular reference are replaced with readable
+			// placeholders while plain values stay intact.
+			const detail = observed[0]!.detail as {
+				label: string;
+				tick: number;
+				node: unknown;
+				circular: { self: unknown };
+			};
+			expect(detail).not.toBe('[object Object]');
+			expect(['even', 'odd']).toContain(detail.label);
+			expect(typeof detail.tick).toBe('number');
+			expect(detail.node).toBe('[element button]');
+			expect(detail.circular.self).toBe('[circular]');
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'detailIncludes that never matches fails the page.event assertion',
+		async () => {
+			const root = await createFixtureProject();
+			const boxes = await selectBoxes(
+				root,
+				'detailIncludes never matching fails the event assertion',
+			);
+			const result = await runBoxes({ root, boxes, fileSystem, browser: hostBrowser });
+
+			expect(result.status).toBe('failed');
+			const message = result.boxes[0]?.error?.message ?? '';
+			expect(message).toContain('needle-that-never-appears');
+
+			const receipt = await readReceipt(result.receiptPath);
+			expect(
+				receipt.boxes[0]!.assertions.some(
+					(entry) => entry.name === 'page.event' && entry.status === 'failed',
+				),
+			).toBe(true);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
 		'page.click interactions become receipt evidence and drive attribute/text assertions',
 		async () => {
 			const root = await createFixtureProject();

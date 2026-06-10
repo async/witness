@@ -18,6 +18,7 @@ type DenoRuntimeLike = {
 	args?: string[];
 	cwd?(): string;
 	exitCode?: number;
+	exit?(code?: number): never;
 	readTextFile(filePath: string): Promise<string>;
 	writeTextFile(filePath: string, data: string): Promise<void>;
 	mkdir(filePath: string, options?: { recursive?: boolean }): Promise<void>;
@@ -34,6 +35,8 @@ type HostProcessLike = {
 	argv?: string[];
 	cwd?(): string;
 	exitCode?: number | string | null | undefined;
+	exit?(code?: number): never;
+	stdout?: { write(chunk: string, callback?: () => void): boolean };
 };
 
 type NodeDirectoryEntryLike = {
@@ -168,4 +171,24 @@ export function setHostExitCode(code: number): void {
 	if (denoRuntime === undefined && hostProcess === undefined && code !== 0) {
 		throw new Error(`gumbox exited with code ${code} on a runtime without exit codes.`);
 	}
+}
+
+/**
+ * Terminates the host process after the run. A project's dev pipeline can
+ * leave runtime handles open past `server.close()` (nitro's dev workers do),
+ * which would keep the event loop alive forever; the CLI's contract is to
+ * exit with the run's code once the receipt is written and the report is
+ * printed. Stdout is flushed first so piped output is never truncated, and
+ * the exit code is also recorded for runtimes without an exit function.
+ */
+export async function exitHost(code: number): Promise<void> {
+	setHostExitCode(code);
+	const hostProcess = globalProcess();
+	if (hostProcess?.stdout?.write !== undefined) {
+		await new Promise<void>((resolve) => {
+			hostProcess.stdout!.write('', () => resolve());
+		});
+	}
+	const exit = globalDeno()?.exit ?? hostProcess?.exit;
+	exit?.(code);
 }

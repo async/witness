@@ -37,6 +37,37 @@ export const TrackedEvents = box(
 	},
 );
 
+export const GnarlyEventDetails = box(
+	{ name: 'gnarly event details serialize and filter by detail content', modes: ['dev'] },
+	async ({ browser, expect }) => {
+		const page = await browser.visit('/?events=1');
+
+		await page.trackEvents('fixture:gnarly');
+		// detailIncludes scopes the wait to events whose serialized detail
+		// contains the needle — the settle-point pattern when a framework fires
+		// the same event name for unrelated reasons.
+		await expect.page.event(page, 'fixture:gnarly', {
+			atLeast: 1,
+			detailIncludes: '"label":"even"',
+		});
+	},
+);
+
+export const DetailFilterMiss = box(
+	{ name: 'detailIncludes never matching fails the event assertion', modes: ['dev'] },
+	async ({ browser, expect }) => {
+		const page = await browser.visit('/?events=1');
+
+		await page.trackEvents('fixture:gnarly');
+		// This must fail: no fixture:gnarly detail ever contains this needle.
+		await expect.page.event(page, 'fixture:gnarly', {
+			atLeast: 1,
+			detailIncludes: 'needle-that-never-appears',
+			timeoutMs: 1500,
+		});
+	},
+);
+
 export const ReloadIsANavigation = box(
 	{ name: 'page reload is recorded as a navigation', modes: ['dev'] },
 	async ({ browser, expect }) => {

@@ -152,13 +152,16 @@ export type PipelineBuildOptions = {
 };
 
 export type BuildArtifact = {
-	/** Path relative to the Vite root, for example 'dist/client/index.html'. */
+	/**
+	 * Path relative to the runner root (even when the box overlays the build
+	 * root to a subdirectory), for example 'dist/client/index.html'.
+	 */
 	path: string;
 	bytes: number;
 };
 
 export type ArtifactHandle = {
-	/** Path relative to the Vite root. */
+	/** Path relative to the runner root. */
 	readonly path: string;
 	readonly absolutePath: string;
 	readonly text: string;
@@ -169,7 +172,7 @@ export type BuildHandle = {
 	/** 'builder' = Vite createBuilder() built every environment; 'build' = single-build fallback. */
 	readonly strategy: 'builder' | 'build';
 	readonly environments: readonly string[];
-	/** Per-environment output directory relative to the Vite root. */
+	/** Per-environment output directory relative to the runner root. */
 	readonly outDirs: Record<string, string>;
 	readonly artifacts: readonly BuildArtifact[];
 	artifact(path: string): Promise<ArtifactHandle>;
@@ -180,7 +183,7 @@ export type BuildRecord = {
 	id: string;
 	strategy: 'builder' | 'build';
 	environments: string[];
-	/** Per-environment output directory relative to the Vite root. */
+	/** Per-environment output directory relative to the runner root. */
 	outDirs: Record<string, string>;
 	artifacts: BuildArtifact[];
 	startedAt: string;
@@ -228,6 +231,13 @@ export type ExpectWaitOptions = {
 export type PageEventExpectOptions = ExpectWaitOptions & {
 	/** Minimum number of observed events (default 1). */
 	atLeast?: number;
+	/**
+	 * Only count events whose JSON-serialized detail contains this substring.
+	 * The settle-point pattern when a framework fires the same event name for
+	 * unrelated reasons (for example qwik's qsymbol for HMR re-renders versus
+	 * for a clicked handler's QRL).
+	 */
+	detailIncludes?: string;
 };
 
 export type EnvironmentExpectApi = {

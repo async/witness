@@ -1,4 +1,10 @@
-import { getPageDriver, syncTrackedEvents, trackedEventCountExpression } from './browser.ts';
+import {
+	getPageDriver,
+	syncTrackedEvents,
+	trackedEventCountExpression,
+	trackedEventMatchCountExpression,
+	trackedEventMatchesDetail,
+} from './browser.ts';
 import type { PageHandle } from './browser.ts';
 import type { EvidenceStore, HotUpdateHookEvidence } from './evidence.ts';
 import { classifyEditOutcome, editTouchesFile, GumboxTimeoutError } from './evidence.ts';
@@ -538,6 +544,7 @@ export function createExpectApi(options: {
 		event: async (page, eventName, options): Promise<void> => {
 			const driver = getPageDriver(page, 'expect.page.event');
 			const atLeast = options?.atLeast ?? 1;
+			const detailIncludes = options?.detailIncludes;
 			const timeoutMs = options?.timeoutMs ?? defaultTimeoutMs;
 			if (driver.record.trackedEvents[eventName] === undefined) {
 				failAssertion(
@@ -547,19 +554,30 @@ export function createExpectApi(options: {
 					`expect.page.event('${eventName}') has no tracking data: call page.trackEvents(${JSON.stringify(eventName)}) before the action that fires it.`,
 				);
 			}
+			const countExpression =
+				detailIncludes === undefined
+					? trackedEventCountExpression(eventName)
+					: trackedEventMatchCountExpression(eventName, detailIncludes);
 			try {
-				await driver.page.waitForExpression(
-					`${trackedEventCountExpression(eventName)} >= ${atLeast}`,
-					timeoutMs,
-				);
+				await driver.page.waitForExpression(`${countExpression} >= ${atLeast}`, timeoutMs);
 			} catch {
 				await syncTrackedEvents(driver.page, driver.record);
-				const observedCount = driver.record.trackedEvents[eventName]?.length ?? 0;
+				const occurrences = driver.record.trackedEvents[eventName] ?? [];
+				const observedCount =
+					detailIncludes === undefined
+						? occurrences.length
+						: occurrences.filter((occurrence) =>
+								trackedEventMatchesDetail(occurrence, detailIncludes),
+							).length;
+				const filterPart =
+					detailIncludes === undefined
+						? ''
+						: ` with detail containing ${JSON.stringify(detailIncludes)}`;
 				failAssertion(
 					'page.event',
 					driver.record.environment,
 					null,
-					`expected page ${page.url} to observe at least ${atLeast} '${eventName}' event(s), but saw ${observedCount} within ${timeoutMs}ms.`,
+					`expected page ${page.url} to observe at least ${atLeast} '${eventName}' event(s)${filterPart}, but saw ${observedCount} within ${timeoutMs}ms.`,
 				);
 			}
 			await syncTrackedEvents(driver.page, driver.record);
