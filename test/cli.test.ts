@@ -297,6 +297,18 @@ describe('gumbox cli', () => {
 	);
 
 	test(
+		'gumbox preview exits 2 when no preview-compatible boxes exist',
+		async () => {
+			const root = await createFixtureProject();
+			const { code, stderr } = await execCli(['preview'], root);
+
+			expect(code).toBe(2);
+			expect(stderr).toContain("mode 'preview'");
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
 		'later-slice commands and flags exit 2 with a clear not-implemented message',
 		async () => {
 			const root = await createFixtureProject();
@@ -305,9 +317,9 @@ describe('gumbox cli', () => {
 			expect(typesCommand.code).toBe(2);
 			expect(typesCommand.stderr).toContain('not implemented');
 
-			const headedFlag = await execCli(['hmr', '--headed'], root);
-			expect(headedFlag.code).toBe(2);
-			expect(headedFlag.stderr).toContain('not implemented');
+			const watchFlag = await execCli(['hmr', '--watch'], root);
+			expect(watchFlag.code).toBe(2);
+			expect(watchFlag.stderr).toContain('not implemented');
 
 			const uiFlag = await execCli(['--ui'], root);
 			expect(uiFlag.code).toBe(2);

@@ -149,8 +149,10 @@ export async function runPipelineBuild(args: {
 	};
 
 	const handle: BuildHandle = {
+		id: buildId,
 		strategy,
 		environments,
+		outDirs,
 		artifacts,
 		artifact: readArtifact,
 	};

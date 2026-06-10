@@ -7,6 +7,8 @@
     "npm:oxfmt@0.46.0": "0.46.0",
     "npm:oxlint@1.61.0": "1.61.0_oxlint-tsgolint@0.22.0",
     "npm:pathe@^2.0.3": "2.0.3",
+    "npm:playwright-core@1.58.1": "1.58.1",
+    "npm:playwright-core@^1.58.1": "1.58.1",
     "npm:tinyglobby@~0.2.17": "0.2.17",
     "npm:tsdown@0.22.2": "0.22.2_typescript@5.9.3",
     "npm:tsdown@latest": "0.22.2_typescript@5.9.3",
@@ -951,6 +953,10 @@
         "pathe"
       ]
     },
+    "playwright-core@1.58.1": {
+      "integrity": "sha512-bcWzOaTxcW+VOOGBCQgnaKToLJ65d6AqfLVKEWvexyS3AS6rbXl+xdpYRMGSRBClPvyj44njOWoxjNdL/H9UNg==",
+      "bin": true
+    },
     "pngjs@7.0.0": {
       "integrity": "sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow=="
     },
@@ -1219,6 +1225,7 @@
       "npm:mitt@^3.0.1",
       "npm:mlly@^1.8.2",
       "npm:pathe@^2.0.3",
+      "npm:playwright-core@^1.58.1",
       "npm:tinyglobby@~0.2.17",
       "npm:typescript@5.9.3",
       "npm:vite-plus@0.1.20",

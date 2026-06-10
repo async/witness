@@ -12,6 +12,18 @@ export type {
 	GumboxFileSystemRuntime,
 } from './filesystem.ts';
 export type {
+	BrowserConsoleMessage,
+	BrowserLaunchOptions,
+	BrowserPageError,
+	BrowserRequestFailure,
+	GumboxBrowser,
+	GumboxBrowserPage,
+	GumboxBrowserSession,
+	PageHandle,
+	PageRecord,
+	PageSnapshot,
+} from './browser.ts';
+export type {
 	EvidenceEvent,
 	HotPayloadEvidence,
 	HotUpdateHookEvidence,
@@ -49,9 +61,13 @@ export type {
 	ExpectWaitOptions,
 	InvalidBoxFile,
 	Measurement,
+	PageExpectApi,
 	PipelineApi,
 	PipelineBuildOptions,
 	PipelineDevOptions,
+	PipelinePreviewOptions,
+	PreviewHandle,
+	PreviewRecord,
 	ProjectApi,
 	ReceiptApi,
 	RunBoxesOptions,

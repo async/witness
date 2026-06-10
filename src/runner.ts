@@ -1,13 +1,16 @@
 import path from 'pathe';
 import { createServer } from 'vite';
 import type { FSWatcher, InlineConfig, ViteDevServer } from 'vite';
+import { createBrowserEvidence, missingBrowserCapabilityError } from './browser.ts';
+import type { GumboxBrowser, PageHandle } from './browser.ts';
 import { runPipelineBuild } from './build.ts';
 import { discoverBoxes } from './discovery.ts';
-import { browserVisitError, createEnvironmentRuntime } from './environments.ts';
+import { createEnvironmentRuntime } from './environments.ts';
 import type { EnvironmentRuntime } from './environments.ts';
 import { connectHotWebSocket, createEvidencePlugin, EvidenceStore } from './evidence.ts';
 import { createExpectApi } from './expect.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
+import { startPipelinePreview } from './preview.ts';
 import { createProjectApi } from './project.ts';
 import { BoxRecorder, createRunDirectory, writeRunReceipt } from './receipt.ts';
 import type {
@@ -22,6 +25,8 @@ import type {
 	InvalidBoxFile,
 	PipelineApi,
 	PipelineBuildOptions,
+	PipelinePreviewOptions,
+	PreviewHandle,
 	ReceiptApi,
 	RunBoxesOptions,
 	RunBoxesResult,
@@ -103,15 +108,40 @@ async function mirrorWsUpdateEvidence(state: RunnerState, store: EvidenceStore):
 async function runSingleBox(args: {
 	discovered: DiscoveredBox;
 	root: string;
+	runDir: string;
 	receiptPath: string;
+	boxIndex: number;
 	assertionTimeoutMs: number;
 	fileSystem: GumboxFileSystem;
+	browser: GumboxBrowser | undefined;
+	headless: boolean;
 }): Promise<{ result: BoxRunResult; receipt: Record<string, unknown> }> {
-	const { discovered, root, receiptPath, assertionTimeoutMs, fileSystem } = args;
+	const {
+		discovered,
+		root,
+		runDir,
+		receiptPath,
+		boxIndex,
+		assertionTimeoutMs,
+		fileSystem,
+		browser: browserCapability,
+		headless,
+	} = args;
 	const definition = discovered.box;
 	const store = new EvidenceStore();
 	const recorder = new BoxRecorder(store);
 	const state: RunnerState = { server: null, runtime: null, ws: null, devHandle: null };
+	const openPreviews: Array<{ close(): Promise<void> }> = [];
+
+	const browserEvidence = createBrowserEvidence({
+		browser: browserCapability,
+		headless,
+		fileSystem,
+		runDir,
+		assetDir: `box-${boxIndex}`,
+		onTimeline: (type, detail) => recorder.timeline(type, detail),
+	});
+	recorder.pages = browserEvidence.pages;
 
 	const projectRuntime = createProjectApi({
 		root,
@@ -140,8 +170,10 @@ async function runSingleBox(args: {
 			state.server = server;
 			await server.listen();
 			await waitForWatcherReady(server.watcher, 10_000);
-			const runtime = createEnvironmentRuntime(server, (type, detail) =>
-				recorder.timeline(type, detail),
+			const runtime = createEnvironmentRuntime(
+				server,
+				(type, detail) => recorder.timeline(type, detail),
+				(visitArgs) => browserEvidence.visit(visitArgs),
 			);
 			state.runtime = runtime;
 			recorder.vite = {
@@ -183,10 +215,23 @@ async function runSingleBox(args: {
 			recorder.builds.push(record);
 			return handle;
 		},
-		preview: async (): Promise<never> => {
-			throw new Error(
-				'pipeline.preview() is not part of this Gumbox slice; preview and browser evidence ship in a later slice.',
-			);
+		preview: async (
+			build: BuildHandle,
+			previewOptions?: PipelinePreviewOptions,
+		): Promise<PreviewHandle> => {
+			const browserAlias = state.runtime?.browserName ?? 'client';
+			const { handle, record, close } = await startPipelinePreview({
+				root,
+				build,
+				previewId: `preview-${recorder.previews.length + 1}`,
+				options: previewOptions,
+				browserAlias,
+				visit: (visitArgs) => browserEvidence.visit(visitArgs),
+				onTimeline: (type, detail) => recorder.timeline(type, detail),
+			});
+			recorder.previews.push(record);
+			openPreviews.push({ close });
+			return handle;
 		},
 	};
 
@@ -211,14 +256,37 @@ async function runSingleBox(args: {
 		},
 	});
 
+	const resolveBrowserHandle = (runtime: EnvironmentRuntime): EnvironmentHandle => {
+		const handle = runtime.handles[runtime.browserName];
+		if (handle === undefined) {
+			throw new Error(
+				`no browser-capable environment found. Known environments: ${runtime.names.join(', ')}.`,
+			);
+		}
+		return handle;
+	};
+
 	const browser = new Proxy({} as BrowserEnvironmentAlias, {
 		get: (_target, prop): unknown => {
 			if (typeof prop !== 'string' || prop === 'then' || prop === 'toJSON') {
 				return undefined;
 			}
 			if (prop === 'visit') {
-				return (visitPath: string): Promise<never> =>
-					Promise.reject(browserVisitError(visitPath));
+				// The simple-box happy path: browser.visit() auto-starts the dev
+				// server, so a visit box does not need an explicit pipeline.dev().
+				return async (visitPath: string): Promise<PageHandle> => {
+					if (browserCapability === undefined) {
+						throw missingBrowserCapabilityError(`browser.visit('${visitPath}')`);
+					}
+					await pipeline.dev();
+					const handle = resolveBrowserHandle(state.runtime!);
+					if (handle.visit === undefined) {
+						throw new Error(
+							`environment '${handle.name}' is not browser-capable, so browser.visit('${visitPath}') is unavailable.`,
+						);
+					}
+					return await handle.visit(visitPath);
+				};
 			}
 			const runtime = state.runtime;
 			if (runtime === null) {
@@ -226,13 +294,7 @@ async function runSingleBox(args: {
 					`browser.${prop} is unavailable before the dev server starts. Call \`await pipeline.dev()\` first.`,
 				);
 			}
-			const handle = runtime.handles[runtime.browserName];
-			if (handle === undefined) {
-				throw new Error(
-					`no browser-capable environment found. Known environments: ${runtime.names.join(', ')}.`,
-				);
-			}
-			return handle[prop as keyof EnvironmentHandle];
+			return resolveBrowserHandle(runtime)[prop as keyof EnvironmentHandle];
 		},
 	});
 
@@ -250,6 +312,9 @@ async function runSingleBox(args: {
 	const receiptApi: ReceiptApi = {
 		capture: async (label: string): Promise<void> => {
 			recorder.capture(label);
+			// A named checkpoint snapshots every open page so the receipt can
+			// show the visible state at that moment.
+			await browserEvidence.captureOpenPages(label);
 		},
 		note: (text: string): void => {
 			recorder.note(text);
@@ -295,6 +360,12 @@ async function runSingleBox(args: {
 		recorder.timeline('box failed', { message: recorder.error.message });
 	} finally {
 		await mirrorWsUpdateEvidence(state, store);
+		// Close the browser before the servers so no page keeps requests
+		// in flight against a server that is tearing down.
+		await browserEvidence.closeAll();
+		for (const openPreview of openPreviews.splice(0)) {
+			await openPreview.close().catch(() => undefined);
+		}
 		state.ws?.close();
 		if (state.server !== null) {
 			await state.server.close().catch(() => undefined);
@@ -349,13 +420,17 @@ export async function runBoxes(options: RunBoxesOptions): Promise<RunBoxesResult
 	);
 	const results: BoxRunResult[] = [];
 	const boxReceipts: Record<string, unknown>[] = [];
-	for (const discovered of boxes) {
+	for (const [index, discovered] of boxes.entries()) {
 		const { result, receipt } = await runSingleBox({
 			discovered,
 			root,
+			runDir,
 			receiptPath,
+			boxIndex: index + 1,
 			assertionTimeoutMs: options.assertionTimeoutMs ?? DEFAULT_ASSERTION_TIMEOUT_MS,
 			fileSystem,
+			browser: options.browser,
+			headless: options.headless ?? true,
 		});
 		results.push(result);
 		boxReceipts.push(receipt);

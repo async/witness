@@ -1,5 +1,6 @@
 import { isFetchableDevEnvironment, isRunnableDevEnvironment } from 'vite';
 import type { DevEnvironment, ViteDevServer } from 'vite';
+import type { PageHandle, VisitArgs } from './browser.ts';
 import type { EnvironmentHandle } from './types.ts';
 
 export type EnvironmentRuntime = {
@@ -10,12 +11,6 @@ export type EnvironmentRuntime = {
 	serverUrl: string;
 };
 
-export function browserVisitError(visitPath: string): Error {
-	return new Error(
-		`browser.visit('${visitPath}') is not available in this Gumbox slice: browser evidence ships in a later slice. Use the browser environment's request(path) for HTML and transform evidence without a browser.`,
-	);
-}
-
 function environmentKind(environment: DevEnvironment): 'browser' | 'server' {
 	return environment.config.consumer === 'client' ? 'browser' : 'server';
 }
@@ -23,6 +18,7 @@ function environmentKind(environment: DevEnvironment): 'browser' | 'server' {
 export function createEnvironmentRuntime(
 	server: ViteDevServer,
 	onTimeline: (type: string, detail: Record<string, unknown>) => void,
+	visitPage: (args: VisitArgs) => Promise<PageHandle>,
 ): EnvironmentRuntime {
 	const serverUrl = server.resolvedUrls?.local[0];
 	if (serverUrl === undefined) {
@@ -92,8 +88,13 @@ export function createEnvironmentRuntime(
 			},
 		};
 		if (kind === 'browser') {
-			handle.visit = (visitPath: string): Promise<never> => {
-				return Promise.reject(browserVisitError(visitPath));
+			handle.visit = (visitPath: string): Promise<PageHandle> => {
+				return visitPage({
+					baseUrl: serverUrl,
+					route: visitPath,
+					environment: name,
+					surface: 'dev',
+				});
 			};
 		}
 		handles[name] = handle;

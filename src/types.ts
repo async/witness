@@ -1,4 +1,5 @@
 import type { InlineConfig, ViteDevServer } from 'vite';
+import type { GumboxBrowser, PageHandle } from './browser.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
 
 /**
@@ -45,12 +46,12 @@ export type EnvironmentHandle = {
 	request(path: string): Promise<string>;
 	/** Import a module id through the environment's module runner. Runnable environments only. */
 	import<T = Record<string, unknown>>(id: string): Promise<T>;
-	/** Reserved for browser-capable environments. Throws until browser evidence ships. */
-	visit?(path: string): Promise<never>;
+	/** Visit a route through a real browser. Browser-capable environments only. */
+	visit?(path: string): Promise<PageHandle>;
 };
 
 export type BrowserEnvironmentAlias = EnvironmentHandle & {
-	visit(path: string): Promise<never>;
+	visit(path: string): Promise<PageHandle>;
 };
 
 export type EnvironmentApi = Record<string, EnvironmentHandle>;
@@ -137,9 +138,12 @@ export type ArtifactHandle = {
 };
 
 export type BuildHandle = {
+	readonly id: string;
 	/** 'builder' = Vite createBuilder() built every environment; 'build' = single-build fallback. */
 	readonly strategy: 'builder' | 'build';
 	readonly environments: readonly string[];
+	/** Per-environment output directory relative to the Vite root. */
+	readonly outDirs: Record<string, string>;
 	readonly artifacts: readonly BuildArtifact[];
 	artifact(path: string): Promise<ArtifactHandle>;
 };
@@ -156,11 +160,38 @@ export type BuildRecord = {
 	durationMs: number;
 };
 
+export type PipelinePreviewOptions = {
+	/** Overlay the inline Vite config used for the preview server without editing files. */
+	config?(config: InlineConfig): InlineConfig | void;
+};
+
+export type PreviewHandle = {
+	readonly url: string;
+	/** Browser alias for the preview surface: visits stay local to the preview run. */
+	readonly browser: {
+		visit(path: string): Promise<PageHandle>;
+	};
+	/** Browserless preview evidence: fetch a route from the preview server. */
+	request(path: string): Promise<string>;
+	close(): Promise<void>;
+};
+
+/** Preview outcome facts recorded in the box receipt. */
+export type PreviewRecord = {
+	id: string;
+	buildId: string;
+	url: string;
+	/** Output directory served by the preview server, relative to the Vite root. */
+	outDir: string;
+	/** The environment name `preview.browser` aliases to. */
+	browserAlias: string;
+	startedAt: string;
+};
+
 export type PipelineApi = {
 	dev(options?: PipelineDevOptions): Promise<DevServerHandle>;
 	build(options?: PipelineBuildOptions): Promise<BuildHandle>;
-	/** Ships in a later slice. Always throws for now. */
-	preview(): Promise<never>;
+	preview(build: BuildHandle, options?: PipelinePreviewOptions): Promise<PreviewHandle>;
 };
 
 export type ExpectWaitOptions = {
@@ -190,10 +221,34 @@ export type ArtifactTextExpectation = {
 
 export type ArtifactJsonPredicate = (json: unknown) => boolean | Promise<boolean>;
 
+export type PageExpectApi = {
+	/** Waits until the selector's trimmed text equals the expected string. */
+	text(
+		page: PageHandle,
+		selector: string,
+		expected: string,
+		options?: ExpectWaitOptions,
+	): Promise<void>;
+	/** Waits until the selector matches an element in the DOM. */
+	exists(page: PageHandle, selector: string, options?: ExpectWaitOptions): Promise<void>;
+	/** Waits until the selector matches a visible element. */
+	visible(page: PageHandle, selector: string, options?: ExpectWaitOptions): Promise<void>;
+	/** Waits until every given computed style property matches. */
+	computedStyle(
+		page: PageHandle,
+		selector: string,
+		styles: Record<string, string>,
+		options?: ExpectWaitOptions,
+	): Promise<void>;
+	/** Asserts the page captured no console errors or uncaught page errors. */
+	cleanConsole(page: PageHandle): Promise<void>;
+};
+
 export type ExpectApi = {
 	environment: Record<string, EnvironmentExpectApi>;
 	/** Alias for `expect.environment.<browser environment>`. */
 	browser: EnvironmentExpectApi;
+	page: PageExpectApi;
 	html: {
 		contains(html: string, fragment: string): Promise<void>;
 	};
@@ -306,6 +361,10 @@ export type RunBoxesOptions = {
 	assertionTimeoutMs?: number;
 	/** Host filesystem capability used for project edits and receipt writes. */
 	fileSystem: GumboxFileSystem;
+	/** Host browser automation capability used by visit() and page evidence. */
+	browser?: GumboxBrowser;
+	/** Run browser sessions headlessly (default true). */
+	headless?: boolean;
 };
 
 export type RunBoxesResult = {

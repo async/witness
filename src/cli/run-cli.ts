@@ -1,3 +1,4 @@
+import type { GumboxBrowser } from '../browser.ts';
 import { discoverBoxes } from '../discovery.ts';
 import type { GumboxFileSystem } from '../filesystem.ts';
 import { runBoxes } from '../runner.ts';
@@ -19,6 +20,8 @@ export type CliDependencies = {
 	/** Project root the CLI operates on (the host's working directory). */
 	cwd: string;
 	fileSystem: GumboxFileSystem;
+	/** Browser automation capability used by boxes that visit routes. */
+	browser?: GumboxBrowser;
 	stdout(line: string): void;
 	stderr(line: string): void;
 };
@@ -28,6 +31,7 @@ export const USAGE = `gumbox — Vite pipeline QA boxes that write receipts
 Usage:
   gumbox [selector] [options]      run matching boxes headlessly
   gumbox run [selector] [options]  explicit form of gumbox [selector]
+  gumbox preview [--run]           run preview-mode boxes against built output
   gumbox list [--json]             list discovered boxes without running them
 
 Selectors match like Vitest: exact file path, glob, box name, file basename, or tag.
@@ -36,6 +40,8 @@ Options:
   --json               machine-readable output for CI and agents
   --receipt-dir <dir>  write receipts under <dir> (default .gumbox/receipts)
   --mode <mode>        only run boxes that declare <mode> (dev, build, ...)
+  --preview            shorthand for --mode preview
+  --headed             run browser sessions with a visible window
   -h, --help           show this help
 
 Exit codes:
@@ -43,13 +49,12 @@ Exit codes:
   1  a box failed (the receipt path is printed)
   2  usage, selector, discovery, or pipeline setup error
 
-Not implemented in this slice: open, types, preview, replay, doctor, init,
-migrate, --ui, --headed, --watch, --preview.`;
+Not implemented in this slice: open, types, replay, doctor, init, migrate,
+--ui, --watch, preview --open.`;
 
 const LATER_SLICE_COMMANDS: Record<string, string> = {
 	open: 'the /__gumbox dev middleware slice',
 	types: 'the typegen slice',
-	preview: 'the browser evidence slice',
 	replay: 'the receipt viewer slice',
 	doctor: 'the typegen slice',
 	init: 'a post-MVP slice',
@@ -58,9 +63,8 @@ const LATER_SLICE_COMMANDS: Record<string, string> = {
 
 const LATER_SLICE_FLAGS: Record<string, string> = {
 	'--ui': 'the Gumbox UI ships with the dev middleware slice',
-	'--headed': 'headed browser runs ship with the browser evidence slice',
 	'--watch': 'watch mode ships with a later slice',
-	'--preview': 'preview runs ship with the browser evidence slice',
+	'--open': 'the preview state gallery ships with the dev middleware slice',
 };
 
 type RunCommand = {
@@ -69,6 +73,7 @@ type RunCommand = {
 	json: boolean;
 	receiptDir: string | null;
 	mode: string | null;
+	headed: boolean;
 };
 type ListCommand = { kind: 'list'; json: boolean };
 type HelpCommand = { kind: 'help' };
@@ -84,6 +89,8 @@ function parseCliArguments(args: string[]): ParseResult {
 	let json = false;
 	let receiptDir: string | null = null;
 	let mode: string | null = null;
+	let headed = false;
+	let runFlag = false;
 	const positionals: string[] = [];
 
 	for (let index = 0; index < args.length; index += 1) {
@@ -93,6 +100,18 @@ function parseCliArguments(args: string[]): ParseResult {
 		}
 		if (argument === '--json') {
 			json = true;
+			continue;
+		}
+		if (argument === '--headed') {
+			headed = true;
+			continue;
+		}
+		if (argument === '--preview') {
+			mode = 'preview';
+			continue;
+		}
+		if (argument === '--run') {
+			runFlag = true;
 			continue;
 		}
 		const valueFlag = ['--receipt-dir', '--mode'].find(
@@ -132,18 +151,31 @@ function parseCliArguments(args: string[]): ParseResult {
 			error: `gumbox ${first} is not implemented yet; it ships with ${LATER_SLICE_COMMANDS[first]}.`,
 		};
 	}
+	if (runFlag && first !== 'preview') {
+		return usageError('--run only applies to gumbox preview.');
+	}
 	if (first === 'list') {
 		if (second !== undefined) {
 			return usageError(`gumbox list does not take a selector ('${second}').`);
 		}
 		return { command: { kind: 'list', json } };
 	}
+	if (first === 'preview') {
+		if (second !== undefined) {
+			return usageError(`gumbox preview does not take a selector ('${second}').`);
+		}
+		// `gumbox preview` runs preview-compatible boxes (those declaring the
+		// 'preview' mode); --run is the explicit form of the same behavior.
+		return {
+			command: { kind: 'run', selector: null, json, receiptDir, mode: 'preview', headed },
+		};
+	}
 	const selector = first === 'run' ? second : first;
 	const trailing = first === 'run' ? extra : second === undefined ? [] : [second, ...extra];
 	if (trailing.length > 0) {
 		return usageError(`expected at most one selector, saw '${trailing.join("', '")}'.`);
 	}
-	return { command: { kind: 'run', selector: selector ?? null, json, receiptDir, mode } };
+	return { command: { kind: 'run', selector: selector ?? null, json, receiptDir, mode, headed } };
 }
 
 function errorMessage(error: unknown): string {
@@ -242,6 +274,8 @@ async function runRunCommand(command: RunCommand, deps: CliDependencies): Promis
 		boxes: selected,
 		invalid: relevantInvalid,
 		fileSystem: deps.fileSystem,
+		headless: !command.headed,
+		...(deps.browser === undefined ? {} : { browser: deps.browser }),
 		...(command.receiptDir === null ? {} : { receiptDir: command.receiptDir }),
 	});
 	const failedBoxes = result.boxes.filter((box) => box.status === 'failed');

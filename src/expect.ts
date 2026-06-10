@@ -1,3 +1,5 @@
+import { getPageDriver } from './browser.ts';
+import type { PageHandle } from './browser.ts';
 import type { EvidenceStore, HotUpdateHookEvidence } from './evidence.ts';
 import { classifyEditOutcome, editTouchesFile, GumboxTimeoutError } from './evidence.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
@@ -12,6 +14,7 @@ import type {
 	EnvironmentExpectApi,
 	ExpectApi,
 	ExpectWaitOptions,
+	PageExpectApi,
 } from './types.ts';
 
 export class GumboxAssertionError extends Error {}
@@ -285,6 +288,146 @@ export function createExpectApi(options: {
 		};
 	};
 
+	const selectorExpression = (selector: string): string =>
+		`document.querySelector(${JSON.stringify(selector)})`;
+
+	const styleValueExpression = (selector: string, property: string): string =>
+		// getPropertyValue covers kebab-case names; indexed access covers camelCase.
+		`(getComputedStyle(${selectorExpression(selector)}).getPropertyValue(${JSON.stringify(property)}) || getComputedStyle(${selectorExpression(selector)})[${JSON.stringify(property)}])`;
+
+	const readPageState = async (page: PageHandle, expression: string): Promise<unknown> => {
+		const driver = getPageDriver(page, 'expect.page');
+		try {
+			return await driver.page.evaluate(expression);
+		} catch {
+			return undefined;
+		}
+	};
+
+	const expectPageCondition = async (args: {
+		assertion: string;
+		page: PageHandle;
+		condition: string;
+		timeoutMs: number;
+		describeFailure(): Promise<string>;
+	}): Promise<void> => {
+		const { assertion, page, condition, timeoutMs, describeFailure } = args;
+		const driver = getPageDriver(page, `expect.${assertion}`);
+		try {
+			await driver.page.waitForExpression(condition, timeoutMs);
+		} catch {
+			failAssertion(
+				assertion,
+				driver.record.environment,
+				null,
+				`${await describeFailure()} (page ${page.url}, waited ${timeoutMs}ms)`,
+			);
+		}
+		passAssertion(assertion, driver.record.environment, null);
+	};
+
+	const pageNamespace: PageExpectApi = {
+		text: async (page, selector, expected, waitOptions?: ExpectWaitOptions): Promise<void> => {
+			const element = selectorExpression(selector);
+			await expectPageCondition({
+				assertion: 'page.text',
+				page,
+				condition: `(() => { const el = ${element}; return el !== null && (el.textContent ?? '').trim() === ${JSON.stringify(expected)}; })()`,
+				timeoutMs: waitOptions?.timeoutMs ?? defaultTimeoutMs,
+				describeFailure: async () => {
+					const actual = await readPageState(
+						page,
+						`(() => { const el = ${element}; return el === null ? null : (el.textContent ?? '').trim(); })()`,
+					);
+					if (actual === null) {
+						return `expected '${selector}' to have text ${JSON.stringify(expected)}, but no element matched the selector`;
+					}
+					return `expected '${selector}' to have text ${JSON.stringify(expected)}, but it was ${JSON.stringify(actual)}`;
+				},
+			});
+		},
+		exists: async (page, selector, waitOptions?: ExpectWaitOptions): Promise<void> => {
+			await expectPageCondition({
+				assertion: 'page.exists',
+				page,
+				condition: `${selectorExpression(selector)} !== null`,
+				timeoutMs: waitOptions?.timeoutMs ?? defaultTimeoutMs,
+				describeFailure: async () =>
+					`expected an element matching '${selector}' to exist in the DOM, but none appeared`,
+			});
+		},
+		visible: async (page, selector, waitOptions?: ExpectWaitOptions): Promise<void> => {
+			const element = selectorExpression(selector);
+			await expectPageCondition({
+				assertion: 'page.visible',
+				page,
+				condition: `(() => { const el = ${element}; if (el === null) return false; if (typeof el.checkVisibility === 'function') return el.checkVisibility(); return el.getClientRects().length > 0; })()`,
+				timeoutMs: waitOptions?.timeoutMs ?? defaultTimeoutMs,
+				describeFailure: async () => {
+					const exists = await readPageState(page, `${element} !== null`);
+					if (exists === false) {
+						return `expected '${selector}' to be visible, but no element matched the selector`;
+					}
+					return `expected '${selector}' to be visible, but it stayed hidden`;
+				},
+			});
+		},
+		computedStyle: async (
+			page,
+			selector,
+			styles,
+			waitOptions?: ExpectWaitOptions,
+		): Promise<void> => {
+			const element = selectorExpression(selector);
+			const checks = Object.entries(styles)
+				.map(
+					([property, value]) =>
+						`${styleValueExpression(selector, property)} === ${JSON.stringify(value)}`,
+				)
+				.join(' && ');
+			const actualEntries = Object.keys(styles)
+				.map(
+					(property) =>
+						`${JSON.stringify(property)}: ${styleValueExpression(selector, property)}`,
+				)
+				.join(', ');
+			await expectPageCondition({
+				assertion: 'page.computedStyle',
+				page,
+				condition: `(() => { if (${element} === null) return false; return ${checks.length === 0 ? 'true' : checks}; })()`,
+				timeoutMs: waitOptions?.timeoutMs ?? defaultTimeoutMs,
+				describeFailure: async () => {
+					const actual = await readPageState(
+						page,
+						`(() => { if (${element} === null) return null; return { ${actualEntries} }; })()`,
+					);
+					if (actual === null) {
+						return `expected '${selector}' to match computed styles ${JSON.stringify(styles)}, but no element matched the selector`;
+					}
+					return `expected '${selector}' to match computed styles ${JSON.stringify(styles)}, but the computed values were ${JSON.stringify(actual)}`;
+				},
+			});
+		},
+		cleanConsole: async (page): Promise<void> => {
+			const driver = getPageDriver(page, 'expect.page.cleanConsole');
+			const consoleErrors = driver.record.consoleMessages
+				.filter((message) => message.level === 'error')
+				.map((message) => message.text);
+			const pageErrors = driver.record.pageErrors.map((error) => error.message);
+			const problems = [...consoleErrors, ...pageErrors];
+			if (problems.length > 0) {
+				const shown = problems.slice(0, 5).join('; ');
+				failAssertion(
+					'page.cleanConsole',
+					driver.record.environment,
+					null,
+					`expected page ${page.url} to have a clean console, but captured ${problems.length} error(s): ${shown}`,
+				);
+			}
+			passAssertion('page.cleanConsole', driver.record.environment, null);
+		},
+	};
+
 	const memo = new Map<string, EnvironmentExpectApi>();
 	const environmentNamespace = new Proxy({} as Record<string, EnvironmentExpectApi>, {
 		get: (_target, prop): EnvironmentExpectApi | undefined => {
@@ -313,6 +456,7 @@ export function createExpectApi(options: {
 	return {
 		environment: environmentNamespace,
 		browser: browserNamespace,
+		page: pageNamespace,
 		html: {
 			contains: async (html: string, fragment: string): Promise<void> => {
 				if (typeof html !== 'string') {

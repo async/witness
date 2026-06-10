@@ -392,7 +392,7 @@ tasks:
   - id: T007
     type: worker
     assignee: Worker
-    status: active
+    status: done
     objective: "Slice 4: browser and preview evidence — browser/environment.client.visit() against the real Vite app route, expect.page.*, screenshots + DOM/HTML snapshots + console/network capture into receipts, pipeline.preview(build) via Vite preview(), preview.browser.visit, and the gumbox preview CLI execution path with browser-alias-target recording."
     inputs:
       - specs/box-authoring.md
@@ -418,15 +418,45 @@ tasks:
       - "Browser automation cannot run in this environment after two distinct attempts — implement preview() evidence without browser, record exact blocker, return partial."
       - "Tests only pass with blind sleeps instead of event-driven waits."
       - "Verification fails twice."
-    receipt: null
+    receipt:
+      result: done
+      changed_files: [src/browser.ts, src/preview.ts, "src/cli/{browser-host,gumbox,run-cli}.ts", src/build.ts, src/environments.ts, src/expect.ts, src/index.ts, src/receipt.ts, src/runner.ts, src/types.ts, test/browser.test.ts, test/cli.test.ts, test/support/host-browser.ts, "test/fixtures/browser/**", deno.json, deno.lock]
+      commands:
+        - { cmd: "deno task test", status: pass, detail: "33/33 (6 new browser/preview tests, browser available, none skipped); PM re-verified independently" }
+        - { cmd: "deno task build", status: pass, detail: "playwright-core external; PM re-verified" }
+        - { cmd: "deno task check", status: pass, detail: "PM re-verified independently" }
+      summary: "Slice 4 done: GumboxBrowser/Session/Page capability injected into runBoxes like fileSystem (core never imports playwright); host adapter lazy-imports playwright-core trying managed Chromium → chrome → msedge channels; environment.client.visit() real, browser.visit() auto-starts dev; expect.page.text/exists/visible/computedStyle/cleanConsole with bounded event-driven waits; screenshots + DOM/HTML snapshots under .gumbox/receipts/<run>/box-<n>/ with console errors and failed requests as evidence; pipeline.preview(build) via Vite preview() with preview.browser.visit and browser-alias-target recording; gumbox preview CLI + --headed/--preview."
+      notes:
+        - "playwright-core@1.58.1 is the only new dependency — no install-time browser download (existing ms-playwright cache or system Chrome/Edge channels); browser tests skip-by-detection on machines without a browser."
+        - "Receipt schema additions additive: pages, previews, summary.pages, summary.previews, BuildHandle.id/outDirs."
+      conflicts: []
   - id: T008
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     objective: "Slice 5: /__gumbox dev/preview middleware — box metadata, visual state gallery listing, state previews that point at real app URLs, execution endpoints, environment metadata, local-only receipt/timeline APIs, dev/preview-port-only guarantee, reject-remote-host default, local token posture; gumbox open."
-    allowed_files: []
-    verify: []
-    stop_if: []
+    inputs:
+      - specs/runtime-routes.md
+      - specs/cli.md
+      - src/index.ts
+      - src/runner.ts
+      - src/cli/run-cli.ts
+    allowed_files:
+      - "src/**"
+      - "test/**"
+      - "deno.json"
+      - "deno.lock"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "docs/goals/gumbox-mvp/notes/T008-*.md"
+    verify:
+      - "deno task test"
+      - "deno task build"
+      - "deno task check"
+    stop_if:
+      - "Any change needed outside this repo."
+      - "Tests only pass with blind sleeps instead of event-driven waits."
+      - "Verification fails twice."
     receipt: null
   - id: T009
     type: worker

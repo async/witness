@@ -1,4 +1,5 @@
 import path from 'pathe';
+import type { PageRecord } from './browser.ts';
 import type { EvidenceStore } from './evidence.ts';
 import { classifyEditOutcome } from './evidence.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
@@ -9,6 +10,7 @@ import type {
 	EditReceipt,
 	EnvironmentEditOutcome,
 	Measurement,
+	PreviewRecord,
 } from './types.ts';
 
 export type TimelineEvent = { seq: number; at: string; type: string } & Record<string, unknown>;
@@ -51,7 +53,9 @@ export class BoxRecorder {
 	readonly captures: Array<{ label: string; at: string }> = [];
 	readonly measurements: Measurement[] = [];
 	readonly builds: BuildRecord[] = [];
+	readonly previews: PreviewRecord[] = [];
 	edits: EditReceipt[] = [];
+	pages: PageRecord[] = [];
 	vite: {
 		configFile: string | null;
 		serverUrl: string | null;
@@ -224,6 +228,8 @@ export class BoxRecorder {
 				};
 			}),
 			builds: this.builds,
+			previews: this.previews,
+			pages: this.pages,
 			editOutcomes,
 			assertions: this.assertions,
 			captures: this.captures,
@@ -241,6 +247,8 @@ export class BoxRecorder {
 				},
 				edits: this.edits.length,
 				builds: this.builds.length,
+				previews: this.previews.length,
+				pages: this.pages.length,
 				restorationFailed,
 			},
 		};
