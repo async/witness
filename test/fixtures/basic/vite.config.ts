@@ -22,13 +22,29 @@ const customHotProtocolPlugin = {
 	},
 };
 
+/**
+ * Emulates plugins that swallow an update entirely: edits to silent.ts
+ * suppress Vite's propagation and broadcast nothing, so the environment never
+ * emits a terminal payload for the edit. The pipeline reaction is exactly
+ * "the watcher saw it and nothing happened".
+ */
+const swallowedHotUpdatePlugin = {
+	name: 'fixture:swallowed-hot-update',
+	hotUpdate(context) {
+		if (!context.file.endsWith('silent.ts')) {
+			return undefined;
+		}
+		return [];
+	},
+};
+
 export default {
 	define: {
 		// The restart box replaces this marker to prove that a config-file
 		// edit restarts the dev server.
 		__GUMBOX_CONFIG_MARKER__: JSON.stringify('marker-before'),
 	},
-	plugins: [customHotProtocolPlugin],
+	plugins: [customHotProtocolPlugin, swallowedHotUpdatePlugin],
 	environments: {
 		// One extra server-runnable environment so environment isolation is testable.
 		ssr: {},

@@ -120,6 +120,7 @@ describe('gumbox runtime', () => {
 				'intentionally failing box',
 				'message updates without reload',
 				'response contentType mismatch fails',
+				'suppressed hot update settles without a payload',
 				'vite config edit restarts the dev server',
 				'wrong edit expectation reports every environment mismatch',
 			]);
@@ -252,6 +253,37 @@ describe('gumbox runtime', () => {
 			expect(
 				boxReceipt.timeline.some((event) => event.type === 'vite custom payload sent'),
 			).toBe(true);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'a swallowed hot update settles via the quiet window, not the full timeout',
+		async () => {
+			const root = await createFixtureProject();
+			const boxes = await selectBoxes(
+				root,
+				'suppressed hot update settles without a payload',
+			);
+
+			// The box asserts with timeoutMs 10_000. The environment records its
+			// hotUpdate hook but never emits a payload, so settling must come
+			// from the post-hook quiet window — far inside the deadline. The
+			// bound includes the dev server boot and module-graph priming.
+			const startedAt = Date.now();
+			const result = await runBoxes({ root, boxes, fileSystem });
+			const elapsedMs = Date.now() - startedAt;
+
+			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+			expect(elapsedMs).toBeLessThan(8_000);
+
+			const receipt = JSON.parse(
+				await fileSystem.readTextFile(result.receiptPath),
+			) as ReceiptJson;
+			const clientOutcome = receipt.boxes[0]!.editOutcomes[0]!.environments['client']!;
+			expect(clientOutcome.hmr).toBe('none');
+			expect(clientOutcome.invalidated.length).toBeGreaterThan(0);
+			expect(clientOutcome.messages).toEqual([]);
 		},
 		TEST_TIMEOUT_MS,
 	);

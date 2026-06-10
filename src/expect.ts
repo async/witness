@@ -37,6 +37,16 @@ export class GumboxAssertionError extends Error {}
 /** Artifact extensions `expect.build.forbids` scans when no glob is given. */
 const TEXT_ARTIFACT_EXTENSIONS = ['.js', '.mjs', '.cjs', '.html', '.json', '.css', '.map', '.txt'];
 
+/**
+ * How long an environment may stay silent after its hotUpdate hook observed
+ * the edit before `expect.edit` settles the outcome as "no further reaction".
+ * Vite emits hot payloads in the same hook dispatch (sub-millisecond in
+ * recorded receipts), so half a second is a wide margin; any new evidence
+ * event restarts the window. 500ms matches the de-facto quiet-window standard
+ * (Playwright and Puppeteer network-idle).
+ */
+const QUIET_WINDOW_MS = 500;
+
 /** Normalizes a `string | string[]` expectation field to an array. */
 function toFragmentList(value: string | string[] | undefined): string[] {
 	if (value === undefined) {
@@ -114,28 +124,71 @@ export function createExpectApi(options: {
 		});
 	};
 
+	type SettleProgress =
+		| { kind: 'settled'; outcome: EnvironmentEditOutcome }
+		| { kind: 'new-evidence' };
+
 	const resolveOutcome = async (
 		environment: string,
 		change: EditReceipt,
 		timeoutMs: number,
+		settleQuietly: boolean,
 	): Promise<EnvironmentEditOutcome> => {
-		try {
-			return await store.waitUntil(
-				`environment '${environment}' to settle its Vite reaction to the edit of ${change.file}`,
-				() => {
-					const { settled, outcome } = classify(environment, change);
-					return settled ? outcome : undefined;
-				},
-				timeoutMs,
-			);
-		} catch (error) {
-			const { hookSeen, outcome } = classify(environment, change);
-			if (error instanceof GumboxTimeoutError && hookSeen) {
-				// The environment observed the change but sent no terminal
-				// payload ("no update happened"); report the partial outcome.
+		const deadline = Date.now() + timeoutMs;
+		while (true) {
+			const { settled, hookSeen, outcome } = classify(environment, change);
+			if (settled) {
 				return outcome;
 			}
-			throw error;
+			const remainingMs = deadline - Date.now();
+			if (remainingMs <= 0) {
+				if (hookSeen) {
+					// The environment observed the change but sent no terminal
+					// payload ("no update happened"); report the partial outcome.
+					return outcome;
+				}
+				throw new GumboxTimeoutError(
+					`timed out after ${timeoutMs}ms waiting for environment '${environment}' to settle its Vite reaction to the edit of ${change.file} (${store.events.length} Vite evidence events observed so far)`,
+				);
+			}
+			// Once the environment's hotUpdate hook observed the edit, Vite
+			// emits any hot payloads in the same dispatch — so when the
+			// expectation needs no future positive evidence, a short window of
+			// silence settles the outcome as "no further reaction" instead of
+			// sleeping until the deadline. New evidence restarts the window.
+			const quietEligible = settleQuietly && hookSeen;
+			const waitMs = quietEligible ? Math.min(QUIET_WINDOW_MS, remainingMs) : remainingMs;
+			const eventCountBefore = store.events.length;
+			try {
+				const progress = await store.waitUntil<SettleProgress>(
+					`environment '${environment}' to settle its Vite reaction to the edit of ${change.file}`,
+					() => {
+						const current = classify(environment, change);
+						if (current.settled) {
+							return { kind: 'settled', outcome: current.outcome };
+						}
+						if (store.events.length > eventCountBefore) {
+							return { kind: 'new-evidence' };
+						}
+						return undefined;
+					},
+					waitMs,
+				);
+				if (progress.kind === 'settled') {
+					return progress.outcome;
+				}
+				// New evidence arrived: reclassify and restart the quiet window.
+			} catch (error) {
+				if (!(error instanceof GumboxTimeoutError)) {
+					throw error;
+				}
+				if (quietEligible) {
+					// Hook seen and a full quiet window of silence: the
+					// environment's reaction is final.
+					return classify(environment, change).outcome;
+				}
+				// The full deadline elapsed; the loop top reports it.
+			}
 		}
 	};
 
@@ -287,9 +340,16 @@ export function createExpectApi(options: {
 		);
 		for (const name of environmentNames) {
 			const expected = expectation[name] as EditEnvironmentExpectation | EditOutcomePredicate;
+			// Quiet settling applies only when the expectation needs no future
+			// positive evidence: an expected update/reload/error must keep the
+			// full bounded wait. Expected messages extend the wait separately.
+			const settleQuietly =
+				typeof expected === 'object' &&
+				(expected.hmr === undefined || expected.hmr === 'none') &&
+				expected.error === undefined;
 			let outcome: EnvironmentEditOutcome;
 			try {
-				outcome = await resolveOutcome(name, change, timeoutMs);
+				outcome = await resolveOutcome(name, change, timeoutMs, settleQuietly);
 			} catch (error) {
 				mismatches.push(`${name}: could not gather edit evidence — ${errorMessage(error)}`);
 				continue;
