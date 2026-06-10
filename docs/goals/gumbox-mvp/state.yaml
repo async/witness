@@ -623,8 +623,29 @@ tasks:
   - id: T021
     type: worker
     assignee: Worker
-    status: active
+    status: done
     objective: "qwik-bundler integration phase 3 (cutover): replace smoke-vite-router-browser, smoke-vite-ssg, check-hmr-leakage with boxes; rewire qwik-bundler package.json test:* scripts to the gumbox CLI; delete scripts/ (incl. with-lock — gumbox owns serialization) once every replacement box runs green."
+    receipt:
+      result: done
+      changed_files: ["gumbox(2975bfe): src/vite-loader.ts (new), src/{runner,build,preview,discovery,environments,types}.ts, test/support/host-env.ts, test/fixtures/build/**, test/gumbox.test.ts", "qwik-bundler(gumbox-scripts 1bf1a32): boxes/{router-browser,ssg-build,hmr-leakage}.box.ts, test/rolldown-hmr-leakage.test.ts, package.json scripts rewired, fixtures/vite-ssg/vite.config.ts, scripts/ DELETED (13 files)"]
+      commands:
+        - { cmd: "deno task test/build/check", status: pass, detail: "47/47" }
+        - { cmd: "pnpm run test:boxes (qwik-bundler)", status: pass, detail: "12/12 boxes across 6 family invocations" }
+        - { cmd: "pnpm test (qwik-bundler)", status: pass, detail: "200/200 incl. new rolldown leakage test" }
+        - { cmd: "pnpm check (qwik-bundler)", status: pass }
+      summary: "PM executed inline. scripts/ is deleted; all 13 smoke-script behaviors live as 12 gumbox boxes plus one vitest test (rolldown-library leakage — rolldown -c is not a Vite pipeline). Receipts surfaced and fixed two REAL gumbox architecture bugs: (1) dual-vite-instance — gumbox must load and drive the project's own vite (src/vite-loader.ts), or plugin state like qwik's client manifest silently breaks across instances; (2) NODE_ENV leakage — discovery's module runner side effect is undone and each box starts from the operator's env (one box's production build was bleeding into the next box's dev server: dev page 404'd on hashed production segment files). builds[].nodeEnv recorded as receipt evidence. SSG fixture prerender pinned to cwd+production (a build-time prerender is a production render)."
+      notes:
+        - "Full 12-box single-process run still fails on nitro build→dev framework module state (qwik plugin manifest closure); families run as separate gumbox invocations in test:boxes until per-box process isolation ships (T023)."
+        - "Original smoke fragilities fixed in passing: router-browser now asserts console errors (script only printed them); ssg/leakage boxes build what they scan instead of assuming prior builds."
+  - id: T023
+    type: worker
+    assignee: Worker
+    status: queued
+    objective: "Per-box process isolation: a gumbox run executes each box (or an opted-in subset) in a fresh host process so framework plugin module state (e.g. qwik manifest closures), vite NODE_ENV mutations, and module-level caches cannot bleed between boxes — restoring the process-per-command assumption frameworks hold. Needs a host process capability (injected, like fileSystem/browser); CLI default vs --no-isolate to decide. Proven by the qwik-bundler 12-box set running green in ONE gumbox invocation."
+    inputs:
+      - notes/T021 receipt (nitro build→dev contamination evidence)
+      - src/cli/host.ts
+      - src/runner.ts
     allowed_files: []
     verify: []
     stop_if: []
