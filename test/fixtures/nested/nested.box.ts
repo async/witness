@@ -19,9 +19,9 @@ export default box(
 			replace: ['nested before', 'nested after'],
 		});
 
-		await expect.environment.client.hotUpdate(change);
-		await expect.environment.client.noFullReload(change);
-		await expect.environment.client.invalidated(change, '/src/message.ts');
+		await expect.edit(change, {
+			client: { hmr: 'accepted', invalidated: ['/src/message.ts'] },
+		});
 		await receipt.capture('after nested hmr update');
 	},
 );

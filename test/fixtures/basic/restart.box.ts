@@ -9,7 +9,7 @@ export const ConfigRestart = box(
 			replace: ['marker-before', 'marker-after'],
 		});
 
-		await expect.pipeline.serverRestarted(change, { timeoutMs: 15_000 });
+		await expect.edit(change, { server: 'restarted' }, { timeoutMs: 15_000 });
 	},
 );
 
@@ -22,6 +22,6 @@ export const EnvReload = box(
 			replace: ['env-before', 'env-after'],
 		});
 
-		await expect.pipeline.serverRestarted(change, { timeoutMs: 15_000 });
+		await expect.edit(change, { server: 'restarted' }, { timeoutMs: 15_000 });
 	},
 );

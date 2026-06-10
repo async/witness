@@ -10,7 +10,7 @@ export default box(
 		await expect.page.visible(page, '#title');
 		await expect.page.text(page, '#message', 'hello from the browser fixture');
 		await expect.page.computedStyle(page, '#title', { color: 'rgb(0, 128, 0)' });
-		await expect.page.cleanConsole(page);
+		await expect.page.outcome(page, { consoleErrors: 0 });
 		await receipt.capture('dashboard state');
 	},
 );
@@ -32,8 +32,10 @@ export const TrackedEvents = box(
 		const page = await browser.visit('/?events=1');
 
 		await page.trackEvents('fixture:ping');
-		await expect.page.event(page, 'fixture:ping', { atLeast: 2 });
-		await expect.page.noNavigations(page);
+		await expect.page.outcome(page, {
+			navigations: 0,
+			events: { 'fixture:ping': { atLeast: 2 } },
+		});
 	},
 );
 
@@ -46,9 +48,8 @@ export const GnarlyEventDetails = box(
 		// detailIncludes scopes the wait to events whose serialized detail
 		// contains the needle — the settle-point pattern when a framework fires
 		// the same event name for unrelated reasons.
-		await expect.page.event(page, 'fixture:gnarly', {
-			atLeast: 1,
-			detailIncludes: '"label":"even"',
+		await expect.page.outcome(page, {
+			events: { 'fixture:gnarly': { atLeast: 1, detailIncludes: '"label":"even"' } },
 		});
 	},
 );
@@ -60,11 +61,15 @@ export const DetailFilterMiss = box(
 
 		await page.trackEvents('fixture:gnarly');
 		// This must fail: no fixture:gnarly detail ever contains this needle.
-		await expect.page.event(page, 'fixture:gnarly', {
-			atLeast: 1,
-			detailIncludes: 'needle-that-never-appears',
-			timeoutMs: 1500,
-		});
+		await expect.page.outcome(
+			page,
+			{
+				events: {
+					'fixture:gnarly': { atLeast: 1, detailIncludes: 'needle-that-never-appears' },
+				},
+			},
+			{ timeoutMs: 1500 },
+		);
 	},
 );
 
@@ -75,7 +80,7 @@ export const ReloadIsANavigation = box(
 
 		await page.reload();
 		// This must fail: the reload navigated the page.
-		await expect.page.noNavigations(page);
+		await expect.page.outcome(page, { navigations: 0 });
 	},
 );
 

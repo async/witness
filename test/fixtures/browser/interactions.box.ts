@@ -11,32 +11,35 @@ export default box(
 
 		await expect.page.attribute(page, '#counter', 'data-idle');
 		await expect.page.attribute(page, '#counter', 'data-idle', 'true');
-		await expect.page.containsText(page, 'clicked 0 times');
+		await expect.page.bodyText(page, { contains: 'clicked 0 times' });
 
 		await page.click('#counter');
 		await page.click('#counter');
 
-		await expect.page.noAttribute(page, '#counter', 'data-idle');
+		// null = the attribute must be absent.
+		await expect.page.attribute(page, '#counter', 'data-idle', null);
 		await expect.page.attribute(page, '#counter', 'data-clicks', '2');
-		await expect.page.containsText(page, 'clicked 2 times');
-		await expect.page.notContainsText(page, 'clicked 0 times');
-		await expect.page.noFailedRequests(page);
+		await expect.page.bodyText(page, {
+			contains: 'clicked 2 times',
+			notContains: 'clicked 0 times',
+		});
+		await expect.page.outcome(page, { failedRequests: 0 });
 	},
 );
 
 export const StaleTextFails = box(
-	{ name: 'notContainsText fails while the text is still present', modes: ['dev'] },
+	{ name: 'bodyText notContains fails while the text is still present', modes: ['dev'] },
 	async ({ browser, expect }) => {
 		const page = await browser.visit('/');
 
-		await expect.page.containsText(page, 'clicked 0 times');
+		await expect.page.bodyText(page, { contains: 'clicked 0 times' });
 		// This must fail: nothing removes the initial counter text.
-		await expect.page.notContainsText(page, 'clicked 0 times', { timeoutMs: 1500 });
+		await expect.page.bodyText(page, { notContains: 'clicked 0 times' }, { timeoutMs: 1500 });
 	},
 );
 
 export const FailedRequestFails = box(
-	{ name: 'noFailedRequests fails after a failed page request', modes: ['dev'] },
+	{ name: 'failedRequests: 0 fails after a failed page request', modes: ['dev'] },
 	async ({ browser, expect }) => {
 		const page = await browser.visit('/?noise=1');
 
@@ -45,6 +48,6 @@ export const FailedRequestFails = box(
 		// assertion runs.
 		await expect.page.attribute(page, 'body', 'data-noise-settled', 'true');
 		// This must fail: the noise page made a request the browser rejected.
-		await expect.page.noFailedRequests(page);
+		await expect.page.outcome(page, { failedRequests: 0 });
 	},
 );

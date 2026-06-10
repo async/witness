@@ -307,7 +307,6 @@ async function runSingleBox(args: {
 		defaultTimeoutMs: assertionTimeoutMs,
 		root,
 		fileSystem,
-		getBrowserName: () => state.runtime?.browserName ?? 'client',
 		getEnvironmentKind: (name) => state.runtime?.kinds[name] ?? 'server',
 		onAssertion: (record) => recorder.assertion(record),
 	});

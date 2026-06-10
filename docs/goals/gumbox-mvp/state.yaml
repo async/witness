@@ -582,6 +582,44 @@ tasks:
         - "smoke-vite-workerd.mjs dynamic Node import of built worker with synthetic ASSETS binding — host-runtime-specific; its product truth (built worker serves 200 SSR HTML with markers) preserved via pipeline.build + artifact assertions + preview-in-workerd."
       notes:
         - "Falsification audit found the original script's attribute oracle (q-e:click) settles mid-render; boxes use qHmr + qsymbol settle points instead. No sleeps anywhere."
+  - id: T022
+    type: worker
+    assignee: Worker
+    status: done
+    objective: "Implement the declarative assertion redesign (user directive 2026-06-10, spec commit 369a8de): expect.edit(change, expectation) with hmr accepted/full-reload/none, invalidated, messages (renames customPayloads), reserved server key, error fail-closed, predicate escape hatch, all-mismatches-at-once diff failures; expect.page.outcome replaces event/noNavigations/noFailedRequests/cleanConsole; attribute null=absent and bodyText contains/notContains replace noAttribute/containsText/notContainsText; EnvironmentEditOutcome gains hmr field, customPayloads renamed to messages. Remove old methods outright; migrate all gumbox fixture boxes/tests and all 9 qwik-bundler boxes."
+    inputs:
+      - specs/box-authoring.md
+      - src/expect.ts
+      - src/evidence.ts
+      - src/types.ts
+      - /Users/jacksm5pro/dev/open-source/qwik-bundler/boxes/
+    allowed_files:
+      - "src/**"
+      - "test/**"
+      - "deno.json"
+      - "deno.lock"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "docs/goals/gumbox-mvp/notes/T022-*.md"
+      - "/Users/jacksm5pro/dev/open-source/qwik-bundler/** (branch gumbox-scripts only)"
+    verify:
+      - "deno task test/build/check (gumbox)"
+      - "all 9 boxes green in qwik-bundler via linked CLI"
+      - "no old assertion method names remain in src/, test/, or qwik-bundler/boxes/"
+    stop_if:
+      - "Spec ambiguity that materially changes the API shape — record and stop."
+      - "Verification fails twice."
+    receipt:
+      result: done
+      note: notes/T022-findings.md
+      changed_files: ["gumbox: src/{types,evidence,expect,runner,index}.ts, test/{gumbox,browser,cli}.test.ts, test/fixtures/{basic,browser,nested}/**", "qwik-bundler(gumbox-scripts): all 7 old-API boxes migrated"]
+      commands:
+        - { cmd: "deno task test", status: pass, detail: "45/45 (new: multi-mismatch falsifiability test proving all env diffs land in one report)" }
+        - { cmd: "deno task build && deno task check", status: pass }
+        - { cmd: "pnpm exec gumbox (qwik-bundler)", status: pass, detail: "9/9 boxes, run twice; fixtures git-clean; pnpm check green" }
+      summary: "PM implemented inline (user rejected subagent dispatch). expect.edit(change, expectation) is the only edit/HMR assertion — declarative partial-receipt diff with all mismatches in one report and structured expected/observed in the assertion record; server: 'restarted' reserved key absorbs pipeline.serverRestarted; expect.page.outcome replaces the four health checks; attribute null=absent, bodyText contains/notContains; EnvironmentEditOutcome gains hmr classification, customPayloads renamed messages. Old methods removed outright. Real race found and fixed: expected messages extend the settle wait event-driven (old customPayload semantics preserved declaratively)."
+      notes:
+        - "Framework-protocol HMR reads as hmr: 'none' + messages; a possible fourth classification ('framework') deferred pending user feedback."
   - id: T021
     type: worker
     assignee: Worker

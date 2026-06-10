@@ -45,10 +45,9 @@ type ReceiptBox = {
 		environments: Record<
 			string,
 			{
-				update: boolean;
-				fullReload: boolean;
+				hmr: 'accepted' | 'full-reload' | 'none';
 				invalidated: unknown[];
-				customPayloads: Array<{ event: string; data?: unknown }>;
+				messages: Array<{ name: string; data?: unknown }>;
 			}
 		>;
 	}>;
@@ -120,6 +119,7 @@ describe('gumbox runtime', () => {
 				'message updates without reload',
 				'response contentType mismatch fails',
 				'vite config edit restarts the dev server',
+				'wrong edit expectation reports every environment mismatch',
 			]);
 
 			const hmr = discovery.boxes.find((entry) => entry.relativeFile === 'hmr.box.ts');
@@ -173,13 +173,20 @@ describe('gumbox runtime', () => {
 
 			// Normalized per-environment edit outcome.
 			const clientOutcome = boxReceipt.editOutcomes[0]!.environments['client']!;
-			expect(clientOutcome.update).toBe(true);
-			expect(clientOutcome.fullReload).toBe(false);
+			expect(clientOutcome.hmr).toBe('accepted');
 			expect(clientOutcome.invalidated.length).toBeGreaterThan(0);
 
-			// Assertion results (passes are recorded too).
-			expect(boxReceipt.assertions.length).toBeGreaterThanOrEqual(4);
+			// Assertion results (passes are recorded too). One declarative
+			// edit assertion covers what used to be three method calls, and it
+			// records its expectation shape.
+			expect(boxReceipt.assertions.length).toBeGreaterThanOrEqual(2);
 			expect(boxReceipt.assertions.every((entry) => entry.status === 'passed')).toBe(true);
+			const editAssertion = boxReceipt.assertions.find((entry) => entry.name === 'edit') as
+				| { expected?: Record<string, unknown> }
+				| undefined;
+			expect(editAssertion?.expected).toMatchObject({
+				client: { hmr: 'accepted' },
+			});
 
 			// HMR evidence arrived both on the hot channel and over a real
 			// Node WebSocket client -- no browser involved.
@@ -229,16 +236,15 @@ describe('gumbox runtime', () => {
 			// The framework suppressed Vite's update payload; the custom payload
 			// is the HMR evidence and must land in the normalized outcome.
 			const clientOutcome = boxReceipt.editOutcomes[0]!.environments['client']!;
-			expect(clientOutcome.update).toBe(false);
-			expect(clientOutcome.fullReload).toBe(false);
+			expect(clientOutcome.hmr).toBe('none');
 			expect(clientOutcome.invalidated.length).toBeGreaterThan(0);
-			expect(clientOutcome.customPayloads.length).toBeGreaterThanOrEqual(1);
-			expect(clientOutcome.customPayloads[0]!.event).toBe('fixture:hmr');
-			expect(clientOutcome.customPayloads[0]!.data).toMatchObject({});
+			expect(clientOutcome.messages.length).toBeGreaterThanOrEqual(1);
+			expect(clientOutcome.messages[0]!.name).toBe('fixture:hmr');
+			expect(clientOutcome.messages[0]!.data).toMatchObject({});
 
 			expect(
 				boxReceipt.assertions.some(
-					(entry) => entry.name === 'customPayload' && entry.status === 'passed',
+					(entry) => entry.name === 'edit' && entry.status === 'passed',
 				),
 			).toBe(true);
 			expect(
@@ -270,8 +276,7 @@ describe('gumbox runtime', () => {
 			// while Vite resolves update payload paths against the app/ dev root.
 			// The receipt must still attribute the update to this edit.
 			const clientOutcome = boxReceipt.editOutcomes[0]!.environments['client']!;
-			expect(clientOutcome.update).toBe(true);
-			expect(clientOutcome.fullReload).toBe(false);
+			expect(clientOutcome.hmr).toBe('accepted');
 			expect(clientOutcome.invalidated.length).toBeGreaterThan(0);
 			expect(boxReceipt.edits[0]!.files[0]!.file).toBe('app/src/message.ts');
 			expect(boxReceipt.edits[0]!.restored).toBe(true);
@@ -306,20 +311,45 @@ describe('gumbox runtime', () => {
 			expect(boxReceipt.status).toBe('passed');
 
 			const outcomes = boxReceipt.editOutcomes[0]!.environments;
-			expect(outcomes['client']!.update).toBe(true);
+			expect(outcomes['client']!.hmr).toBe('accepted');
 			expect(outcomes['client']!.invalidated.length).toBeGreaterThan(0);
-			expect(outcomes['ssr']!.update).toBe(false);
-			expect(outcomes['ssr']!.fullReload).toBe(false);
+			expect(outcomes['ssr']!.hmr).toBe('none');
 			expect(outcomes['ssr']!.invalidated).toHaveLength(0);
 
+			// One declarative assertion covers both environments.
 			expect(
 				boxReceipt.assertions.some(
-					(entry) =>
-						entry.name === 'notInvalidated' &&
-						entry.environment === 'ssr' &&
-						entry.status === 'passed',
+					(entry) => entry.name === 'edit' && entry.status === 'passed',
 				),
 			).toBe(true);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'a wrong edit expectation fails with every environment mismatch in one report',
+		async () => {
+			const root = await createFixtureProject();
+			const boxes = await selectBoxes(
+				root,
+				'wrong edit expectation reports every environment mismatch',
+			);
+			const result = await runBoxes({ root, boxes, fileSystem });
+
+			expect(result.status).toBe('failed');
+			const message = result.boxes[0]?.error?.message ?? '';
+			expect(message).toContain("client.hmr: expected 'full-reload', observed 'accepted'");
+			expect(message).toContain('client.invalidated: expected no invalidated modules');
+			expect(message).toContain("ssr.hmr: expected 'accepted', observed 'none'");
+
+			const receipt = JSON.parse(
+				await fileSystem.readTextFile(result.receiptPath),
+			) as ReceiptJson;
+			const failed = receipt.boxes[0]!.assertions.find(
+				(entry) => entry.name === 'edit' && entry.status === 'failed',
+			) as { expected?: unknown; observed?: Record<string, { hmr: string }> } | undefined;
+			expect(failed).toBeDefined();
+			expect(failed!.observed?.['client']?.hmr).toBe('accepted');
 		},
 		TEST_TIMEOUT_MS,
 	);
@@ -449,8 +479,7 @@ describe('gumbox runtime', () => {
 			)!;
 			expect(
 				configBox.assertions.some(
-					(entry) =>
-						entry.name === 'pipeline.serverRestarted' && entry.status === 'passed',
+					(entry) => entry.name === 'edit' && entry.status === 'passed',
 				),
 			).toBe(true);
 			const configTimeline = configBox.timeline.map((event) => event.type);
@@ -463,8 +492,7 @@ describe('gumbox runtime', () => {
 			)!;
 			expect(
 				envBox.assertions.some(
-					(entry) =>
-						entry.name === 'pipeline.serverRestarted' && entry.status === 'passed',
+					(entry) => entry.name === 'edit' && entry.status === 'passed',
 				),
 			).toBe(true);
 			const envTimeline = envBox.timeline.map((event) => event.type);

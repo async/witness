@@ -11,7 +11,7 @@ export const PreviewDashboard = box(
 
 		await expect.page.text(page, '#message', 'hello from the browser fixture');
 		await expect.page.computedStyle(page, '#title', { color: 'rgb(0, 128, 0)' });
-		await expect.page.cleanConsole(page);
+		await expect.page.outcome(page, { consoleErrors: 0 });
 		await receipt.capture('preview dashboard state');
 	},
 );

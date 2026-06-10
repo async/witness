@@ -6,22 +6,26 @@ import {
 	trackedEventMatchesDetail,
 } from './browser.ts';
 import type { PageHandle } from './browser.ts';
-import type { EvidenceStore, HotUpdateHookEvidence } from './evidence.ts';
-import { classifyEditOutcome, editTouchesFile, GumboxTimeoutError } from './evidence.ts';
+import type { EvidenceStore } from './evidence.ts';
+import { classifyEditOutcome, GumboxTimeoutError } from './evidence.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
 import { resolveWithinRoot } from './project.ts';
 import type {
 	ArtifactHandle,
 	ArtifactJsonPredicate,
 	AssertionRecord,
+	BodyTextExpectation,
 	BuildHandle,
+	EditEnvironmentExpectation,
+	EditExpectation,
+	EditOutcomePredicate,
 	EditReceipt,
 	EnvironmentEditOutcome,
-	EnvironmentExpectApi,
 	EnvironmentResponse,
 	ExpectApi,
 	ExpectWaitOptions,
 	PageExpectApi,
+	PageOutcomeExpectation,
 	ResponseExpectation,
 } from './types.ts';
 
@@ -33,7 +37,6 @@ export function createExpectApi(options: {
 	defaultTimeoutMs: number;
 	root: string;
 	fileSystem: GumboxFileSystem;
-	getBrowserName(): string;
 	getEnvironmentKind(name: string): EnvironmentEditOutcome['kind'];
 	onAssertion(record: AssertionRecord): void;
 }): ExpectApi {
@@ -43,7 +46,6 @@ export function createExpectApi(options: {
 		defaultTimeoutMs,
 		root,
 		fileSystem,
-		getBrowserName,
 		getEnvironmentKind,
 		onAssertion,
 	} = options;
@@ -52,6 +54,7 @@ export function createExpectApi(options: {
 		name: string,
 		environment: string | null,
 		change: EditReceipt | null,
+		expected?: unknown,
 	): void => {
 		onAssertion({
 			name,
@@ -59,6 +62,7 @@ export function createExpectApi(options: {
 			editId: change?.id ?? null,
 			status: 'passed',
 			message: null,
+			...(expected === undefined ? {} : { expected }),
 		});
 	};
 
@@ -67,6 +71,7 @@ export function createExpectApi(options: {
 		environment: string | null,
 		change: EditReceipt | null,
 		message: string,
+		detail?: { expected?: unknown; observed?: unknown },
 	): never => {
 		onAssertion({
 			name,
@@ -74,31 +79,14 @@ export function createExpectApi(options: {
 			editId: change?.id ?? null,
 			status: 'failed',
 			message,
+			...(detail?.expected === undefined ? {} : { expected: detail.expected }),
+			...(detail?.observed === undefined ? {} : { observed: detail.observed }),
 		});
 		throw new GumboxAssertionError(`${message}\nReceipt: ${receiptPath}`);
 	};
 
 	const errorMessage = (error: unknown): string =>
 		error instanceof Error ? error.message : String(error);
-
-	const waitForHook = (
-		environment: string,
-		change: EditReceipt,
-		timeoutMs: number,
-	): Promise<HotUpdateHookEvidence> => {
-		return store.waitUntil(
-			`environment '${environment}' to observe the file change for ${change.file}`,
-			() =>
-				store.events.find(
-					(event): event is HotUpdateHookEvidence =>
-						event.kind === 'hot-update-hook' &&
-						event.environment === environment &&
-						editTouchesFile(change, event.file) &&
-						event.seq > change.seq,
-				),
-			timeoutMs,
-		);
-	};
 
 	const classify = (
 		environment: string,
@@ -137,213 +125,213 @@ export function createExpectApi(options: {
 		}
 	};
 
-	const createEnvironmentExpect = (name: string): EnvironmentExpectApi => {
-		return {
-			hotUpdate: async (change, waitOptions?: ExpectWaitOptions): Promise<void> => {
-				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
-				try {
-					await store.waitUntil(
-						`environment '${name}' to receive a Vite HMR update payload for ${change.file}`,
-						() =>
-							store.events.find(
-								(event) =>
-									event.kind === 'hot-payload' &&
-									event.environment === name &&
-									event.payload.type === 'update' &&
-									event.seq > change.seq &&
-									(event.files.length === 0 ||
-										event.files.some((file) => editTouchesFile(change, file))),
-							),
-						timeoutMs,
-					);
-				} catch {
-					const { outcome } = classify(name, change);
-					const observed = outcome.fullReload
-						? ' Vite sent a full reload instead.'
-						: outcome.error !== null
-							? ' Vite sent an error payload instead.'
-							: '';
-					failAssertion(
-						'hotUpdate',
-						name,
-						change,
-						`expected environment '${name}' to hot-update after editing ${change.file}, but no HMR update payload was observed within ${timeoutMs}ms.${observed}`,
-					);
-				}
-				passAssertion('hotUpdate', name, change);
-			},
-			customPayload: async (
-				change,
-				eventName,
-				waitOptions?: ExpectWaitOptions,
-			): Promise<void> => {
-				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
-				try {
-					await store.waitUntil(
-						`environment '${name}' to broadcast custom hot payload '${eventName}' for ${change.file}`,
-						() =>
-							store.events.find(
-								(event) =>
-									event.kind === 'hot-payload' &&
-									event.environment === name &&
-									event.source === 'channel' &&
-									event.payload.type === 'custom' &&
-									event.payload.event === eventName &&
-									event.seq > change.seq,
-							),
-						timeoutMs,
-					);
-				} catch {
-					const seenEvents = [
-						...new Set(
-							store.events
-								.filter(
-									(event) =>
-										event.kind === 'hot-payload' &&
-										event.environment === name &&
-										event.payload.type === 'custom' &&
-										event.seq > change.seq,
-								)
-								.map((event) =>
-									event.kind === 'hot-payload' ? String(event.payload.event) : '',
-								),
-						),
-					];
-					const seen =
-						seenEvents.length === 0
-							? ''
-							: ` Custom payloads observed instead: ${seenEvents.join(', ')}.`;
-					failAssertion(
-						'customPayload',
-						name,
-						change,
-						`expected environment '${name}' to broadcast custom hot payload '${eventName}' after editing ${change.file}, but none arrived within ${timeoutMs}ms.${seen}`,
+	const moduleMatchesPath = (
+		module: { url: string; id: string | null; file: string | null },
+		modulePath: string,
+	): boolean =>
+		module.url === modulePath ||
+		module.id === modulePath ||
+		(module.file !== null && (module.file === modulePath || module.file.endsWith(modulePath)));
+
+	const summarizeOutcome = (outcome: EnvironmentEditOutcome): Record<string, unknown> => ({
+		hmr: outcome.hmr,
+		invalidated: outcome.invalidated.map((mod) => mod.url),
+		messages: outcome.messages.map((message) => message.name),
+		restart: outcome.restart,
+		error: outcome.error,
+	});
+
+	const diffEnvironmentOutcome = (
+		name: string,
+		expected: EditEnvironmentExpectation,
+		outcome: EnvironmentEditOutcome,
+		mismatches: string[],
+	): void => {
+		if (expected.hmr !== undefined && outcome.hmr !== expected.hmr) {
+			mismatches.push(`${name}.hmr: expected '${expected.hmr}', observed '${outcome.hmr}'`);
+		}
+		if (expected.invalidated !== undefined) {
+			const seen = outcome.invalidated.map((mod) => mod.url).join(', ');
+			if (expected.invalidated.length === 0) {
+				if (outcome.invalidated.length > 0) {
+					mismatches.push(
+						`${name}.invalidated: expected no invalidated modules, observed: ${seen}`,
 					);
 				}
-				passAssertion('customPayload', name, change);
-			},
-			noFullReload: async (change, waitOptions?: ExpectWaitOptions): Promise<void> => {
-				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
-				let outcome: EnvironmentEditOutcome;
-				try {
-					outcome = await resolveOutcome(name, change, timeoutMs);
-				} catch (error) {
-					failAssertion(
-						'noFullReload',
-						name,
-						change,
-						`could not verify noFullReload for ${change.file} in environment '${name}': ${errorMessage(error)}`,
-					);
-					return;
-				}
-				if (outcome.fullReload) {
-					failAssertion(
-						'noFullReload',
-						name,
-						change,
-						`expected environment '${name}' to avoid a full reload after editing ${change.file}, but Vite sent a full-reload payload.`,
-					);
-				}
-				passAssertion('noFullReload', name, change);
-			},
-			invalidated: async (
-				change,
-				modulePath?: string,
-				waitOptions?: ExpectWaitOptions,
-			): Promise<void> => {
-				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
-				let hook: HotUpdateHookEvidence;
-				try {
-					hook = await waitForHook(name, change, timeoutMs);
-				} catch (error) {
-					failAssertion('invalidated', name, change, errorMessage(error));
-					return;
-				}
-				if (hook.modules.length === 0) {
-					failAssertion(
-						'invalidated',
-						name,
-						change,
-						`expected environment '${name}' to invalidate modules after editing ${change.file}, but its module graph had no modules for that file.`,
-					);
-				}
-				if (modulePath !== undefined) {
-					const matched = hook.modules.some(
-						(mod) =>
-							mod.url === modulePath ||
-							mod.id === modulePath ||
-							(mod.file !== null &&
-								(mod.file === modulePath || mod.file.endsWith(modulePath))),
+			} else {
+				for (const modulePath of expected.invalidated) {
+					const matched = outcome.invalidated.some((mod) =>
+						moduleMatchesPath(mod, modulePath),
 					);
 					if (!matched) {
-						const seen = hook.modules.map((mod) => mod.url).join(', ');
-						failAssertion(
-							'invalidated',
-							name,
-							change,
-							`expected environment '${name}' to invalidate ${modulePath} after editing ${change.file}, but it invalidated: ${seen}.`,
+						mismatches.push(
+							`${name}.invalidated: expected ${modulePath} to be invalidated, observed: ${seen || '(none)'}`,
 						);
 					}
 				}
-				passAssertion('invalidated', name, change);
-			},
-			notInvalidated: async (change, waitOptions?: ExpectWaitOptions): Promise<void> => {
-				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
-				let hook: HotUpdateHookEvidence;
-				try {
-					hook = await waitForHook(name, change, timeoutMs);
-				} catch (error) {
-					failAssertion('notInvalidated', name, change, errorMessage(error));
-					return;
-				}
-				if (hook.modules.length > 0) {
-					const seen = hook.modules.map((mod) => mod.url).join(', ');
-					failAssertion(
-						'notInvalidated',
-						name,
-						change,
-						`expected environment '${name}' to ignore the edit of ${change.file}, but it invalidated: ${seen}.`,
+			}
+		}
+		if (expected.messages !== undefined) {
+			const seenNames = [...new Set(outcome.messages.map((message) => message.name))];
+			for (const messageName of expected.messages) {
+				if (!seenNames.includes(messageName)) {
+					mismatches.push(
+						`${name}.messages: expected a '${messageName}' hot message, observed: ${seenNames.join(', ') || '(none)'}`,
 					);
 				}
-				passAssertion('notInvalidated', name, change);
-			},
-			satisfies: async (
-				change,
-				predicate,
-				waitOptions?: ExpectWaitOptions,
-			): Promise<void> => {
-				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
-				let outcome: EnvironmentEditOutcome;
+			}
+		}
+		if (expected.error === undefined) {
+			// Naming an environment fails closed: no error expectation means
+			// the environment must not have reported an error.
+			if (outcome.error !== null) {
+				mismatches.push(
+					`${name}.error: expected no error, observed: ${JSON.stringify(outcome.error)}`,
+				);
+			}
+			return;
+		}
+		if (outcome.error === null) {
+			mismatches.push(
+				`${name}.error: expected an error matching ${JSON.stringify(expected.error)}, observed none`,
+			);
+			return;
+		}
+		for (const [key, value] of Object.entries(expected.error)) {
+			if (JSON.stringify(outcome.error[key]) !== JSON.stringify(value)) {
+				mismatches.push(
+					`${name}.error.${key}: expected ${JSON.stringify(value)}, observed ${JSON.stringify(outcome.error[key])}`,
+				);
+			}
+		}
+	};
+
+	const checkServerRestarted = async (
+		change: EditReceipt,
+		timeoutMs: number,
+		mismatches: string[],
+	): Promise<void> => {
+		let restartSeq = 0;
+		try {
+			const restart = await store.waitUntil(
+				`the Vite dev server to restart after editing ${change.file}`,
+				() =>
+					store.events.find(
+						(event) => event.kind === 'server-restart' && event.seq > change.seq,
+					),
+				timeoutMs,
+			);
+			restartSeq = restart.seq;
+		} catch {
+			mismatches.push(
+				`server: expected the dev server to restart after editing ${change.file}, but no restart was observed within ${timeoutMs}ms`,
+			);
+			return;
+		}
+		// Settle on the restarted server accepting connections again, so the
+		// box does not tear the server down mid-restart.
+		try {
+			await store.waitUntil(
+				'the restarted Vite dev server to start listening again',
+				() =>
+					store.events.find(
+						(event) => event.kind === 'server-listening' && event.seq > restartSeq,
+					),
+				timeoutMs,
+			);
+		} catch {
+			mismatches.push(
+				`server: the dev server began restarting after editing ${change.file}, but it did not start listening again within ${timeoutMs}ms`,
+			);
+		}
+	};
+
+	/** The expectation with predicates made JSON-safe for the receipt record. */
+	const serializableExpectation = (expectation: EditExpectation): Record<string, unknown> =>
+		Object.fromEntries(
+			Object.entries(expectation).map(([key, value]) => [
+				key,
+				typeof value === 'function' ? '(predicate)' : value,
+			]),
+		);
+
+	const expectEdit = async (
+		change: EditReceipt,
+		expectation: EditExpectation,
+		waitOptions?: ExpectWaitOptions,
+	): Promise<void> => {
+		const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
+		const mismatches: string[] = [];
+		const observed: Record<string, unknown> = {};
+
+		if (expectation.server !== undefined) {
+			await checkServerRestarted(change, timeoutMs, mismatches);
+		}
+
+		const environmentNames = Object.keys(expectation).filter(
+			(name) => name !== 'server' && expectation[name] !== undefined,
+		);
+		for (const name of environmentNames) {
+			const expected = expectation[name] as EditEnvironmentExpectation | EditOutcomePredicate;
+			let outcome: EnvironmentEditOutcome;
+			try {
+				outcome = await resolveOutcome(name, change, timeoutMs);
+			} catch (error) {
+				mismatches.push(`${name}: could not gather edit evidence — ${errorMessage(error)}`);
+				continue;
+			}
+			const expectedMessages =
+				typeof expected === 'object' && expected.messages !== undefined
+					? expected.messages
+					: [];
+			if (expectedMessages.length > 0) {
+				// An environment can settle (hook seen, nothing invalidated)
+				// before the framework broadcasts its hot messages; expected
+				// messages extend the wait, event-driven, until they arrive.
 				try {
-					outcome = await resolveOutcome(name, change, timeoutMs);
-				} catch (error) {
-					failAssertion(
-						'satisfies',
-						name,
-						change,
-						`could not gather edit evidence for ${change.file} in environment '${name}': ${errorMessage(error)}`,
+					outcome = await store.waitUntil(
+						`environment '${name}' to broadcast hot message(s) ${expectedMessages.join(', ')}`,
+						() => {
+							const current = classify(name, change).outcome;
+							const seenNames = new Set(
+								current.messages.map((message) => message.name),
+							);
+							return expectedMessages.every((messageName) =>
+								seenNames.has(messageName),
+							)
+								? current
+								: undefined;
+						},
+						timeoutMs,
 					);
-					return;
+				} catch {
+					// The diff below reports exactly which messages never came.
+					outcome = classify(name, change).outcome;
 				}
-				const accepted = await predicate(outcome);
+			}
+			observed[name] = summarizeOutcome(outcome);
+			if (typeof expected === 'function') {
+				const accepted = await expected(outcome);
 				if (!accepted) {
-					failAssertion(
-						'satisfies',
-						name,
-						change,
-						`custom evidence predicate rejected the outcome for environment '${name}' after editing ${change.file}: ${JSON.stringify(
-							{
-								update: outcome.update,
-								fullReload: outcome.fullReload,
-								restart: outcome.restart,
-								invalidated: outcome.invalidated.map((mod) => mod.url),
-							},
-						)}.`,
+					mismatches.push(
+						`${name}: custom outcome predicate rejected ${JSON.stringify(summarizeOutcome(outcome))}`,
 					);
 				}
-				passAssertion('satisfies', name, change);
-			},
-		};
+				continue;
+			}
+			diffEnvironmentOutcome(name, expected, outcome, mismatches);
+		}
+
+		if (mismatches.length > 0) {
+			failAssertion(
+				'edit',
+				null,
+				change,
+				`the reaction to editing ${change.file} did not match the expectation:\n  - ${mismatches.join('\n  - ')}`,
+				{ expected: serializableExpectation(expectation), observed },
+			);
+		}
+		passAssertion('edit', null, change, serializableExpectation(expectation));
 	};
 
 	const selectorExpression = (selector: string): string =>
@@ -404,39 +392,59 @@ export function createExpectApi(options: {
 				},
 			});
 		},
-		containsText: async (page, fragment, waitOptions?: ExpectWaitOptions): Promise<void> => {
+		bodyText: async (
+			page,
+			expectation: BodyTextExpectation,
+			waitOptions?: ExpectWaitOptions,
+		): Promise<void> => {
+			const conditions: string[] = [];
+			const requirements: string[] = [];
+			if (expectation.contains !== undefined) {
+				conditions.push(
+					`(document.body?.textContent ?? '').includes(${JSON.stringify(expectation.contains)})`,
+				);
+				requirements.push(`contain ${JSON.stringify(expectation.contains)}`);
+			}
+			if (expectation.notContains !== undefined) {
+				conditions.push(
+					`!(document.body?.textContent ?? '').includes(${JSON.stringify(expectation.notContains)})`,
+				);
+				requirements.push(`stop containing ${JSON.stringify(expectation.notContains)}`);
+			}
+			if (conditions.length === 0) {
+				failAssertion(
+					'page.bodyText',
+					null,
+					null,
+					'expect.page.bodyText needs a contains and/or notContains expectation.',
+				);
+			}
 			await expectPageCondition({
-				assertion: 'page.containsText',
+				assertion: 'page.bodyText',
 				page,
-				condition: `(document.body?.textContent ?? '').includes(${JSON.stringify(fragment)})`,
+				condition: conditions.join(' && '),
 				timeoutMs: waitOptions?.timeoutMs ?? defaultTimeoutMs,
 				describeFailure: async () =>
-					`expected the page body text to contain ${JSON.stringify(fragment)}, but it never appeared`,
-			});
-		},
-		notContainsText: async (page, fragment, waitOptions?: ExpectWaitOptions): Promise<void> => {
-			await expectPageCondition({
-				assertion: 'page.notContainsText',
-				page,
-				condition: `!(document.body?.textContent ?? '').includes(${JSON.stringify(fragment)})`,
-				timeoutMs: waitOptions?.timeoutMs ?? defaultTimeoutMs,
-				describeFailure: async () =>
-					`expected the page body text to stop containing ${JSON.stringify(fragment)}, but it was still present`,
+					`expected the page body text to ${requirements.join(' and ')}, but it never did`,
 			});
 		},
 		attribute: async (
 			page,
 			selector,
 			attributeName,
-			expected?: string,
+			expected?: string | null,
 			waitOptions?: ExpectWaitOptions,
 		): Promise<void> => {
 			const element = selectorExpression(selector);
 			const attributeValue = `${element}?.getAttribute(${JSON.stringify(attributeName)})`;
+			// null = the element must exist without the attribute (absence);
+			// undefined = the attribute must be present with any value.
 			const condition =
-				expected === undefined
-					? `(${attributeValue}) !== null && (${attributeValue}) !== undefined`
-					: `(${attributeValue}) === ${JSON.stringify(expected)}`;
+				expected === null
+					? `(() => { const el = ${element}; return el !== null && !el.hasAttribute(${JSON.stringify(attributeName)}); })()`
+					: expected === undefined
+						? `(${attributeValue}) !== null && (${attributeValue}) !== undefined`
+						: `(${attributeValue}) === ${JSON.stringify(expected)}`;
 			await expectPageCondition({
 				assertion: 'page.attribute',
 				page,
@@ -448,34 +456,16 @@ export function createExpectApi(options: {
 						`(() => { const el = ${element}; return el === null ? { missing: true } : { value: el.getAttribute(${JSON.stringify(attributeName)}) }; })()`,
 					);
 					if ((actual as { missing?: boolean } | undefined)?.missing === true) {
-						return `expected '${selector}' to have attribute '${attributeName}', but no element matched the selector`;
+						return `expected '${selector}' to ${expected === null ? `exist without attribute '${attributeName}'` : `have attribute '${attributeName}'`}, but no element matched the selector`;
 					}
 					const value = (actual as { value?: string | null } | undefined)?.value ?? null;
+					if (expected === null) {
+						return `expected '${selector}' to lose attribute '${attributeName}', but the element still carries it`;
+					}
 					if (expected === undefined) {
 						return `expected '${selector}' to have attribute '${attributeName}', but it was absent`;
 					}
 					return `expected '${selector}' attribute '${attributeName}' to be ${JSON.stringify(expected)}, but it was ${JSON.stringify(value)}`;
-				},
-			});
-		},
-		noAttribute: async (
-			page,
-			selector,
-			attributeName,
-			waitOptions?: ExpectWaitOptions,
-		): Promise<void> => {
-			const element = selectorExpression(selector);
-			await expectPageCondition({
-				assertion: 'page.noAttribute',
-				page,
-				condition: `(() => { const el = ${element}; return el !== null && !el.hasAttribute(${JSON.stringify(attributeName)}); })()`,
-				timeoutMs: waitOptions?.timeoutMs ?? defaultTimeoutMs,
-				describeFailure: async () => {
-					const exists = await readPageState(page, `${element} !== null`);
-					if (exists === false) {
-						return `expected '${selector}' to exist without attribute '${attributeName}', but no element matched the selector`;
-					}
-					return `expected '${selector}' to lose attribute '${attributeName}', but the element still carries it`;
 				},
 			});
 		},
@@ -541,130 +531,111 @@ export function createExpectApi(options: {
 				},
 			});
 		},
-		event: async (page, eventName, options): Promise<void> => {
-			const driver = getPageDriver(page, 'expect.page.event');
-			const atLeast = options?.atLeast ?? 1;
-			const detailIncludes = options?.detailIncludes;
-			const timeoutMs = options?.timeoutMs ?? defaultTimeoutMs;
-			if (driver.record.trackedEvents[eventName] === undefined) {
-				failAssertion(
-					'page.event',
-					driver.record.environment,
-					null,
-					`expect.page.event('${eventName}') has no tracking data: call page.trackEvents(${JSON.stringify(eventName)}) before the action that fires it.`,
-				);
-			}
-			const countExpression =
-				detailIncludes === undefined
-					? trackedEventCountExpression(eventName)
-					: trackedEventMatchCountExpression(eventName, detailIncludes);
-			try {
-				await driver.page.waitForExpression(`${countExpression} >= ${atLeast}`, timeoutMs);
-			} catch {
-				await syncTrackedEvents(driver.page, driver.record);
-				const occurrences = driver.record.trackedEvents[eventName] ?? [];
-				const observedCount =
+		outcome: async (
+			page,
+			expectation: PageOutcomeExpectation,
+			waitOptions?: ExpectWaitOptions,
+		): Promise<void> => {
+			const driver = getPageDriver(page, 'expect.page.outcome');
+			const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
+			const mismatches: string[] = [];
+			const observed: Record<string, unknown> = {};
+
+			// Event expectations wait (bounded) for their counts; everything
+			// else compares what the page record holds afterwards.
+			for (const [eventName, eventExpectation] of Object.entries(expectation.events ?? {})) {
+				const atLeast = eventExpectation.atLeast ?? 1;
+				const detailIncludes = eventExpectation.detailIncludes;
+				if (driver.record.trackedEvents[eventName] === undefined) {
+					failAssertion(
+						'page.outcome',
+						driver.record.environment,
+						null,
+						`expect.page.outcome has no tracking data for '${eventName}': call page.trackEvents(${JSON.stringify(eventName)}) before the action that fires it.`,
+					);
+				}
+				const countExpression =
 					detailIncludes === undefined
-						? occurrences.length
-						: occurrences.filter((occurrence) =>
-								trackedEventMatchesDetail(occurrence, detailIncludes),
-							).length;
-				const filterPart =
-					detailIncludes === undefined
-						? ''
-						: ` with detail containing ${JSON.stringify(detailIncludes)}`;
-				failAssertion(
-					'page.event',
-					driver.record.environment,
-					null,
-					`expected page ${page.url} to observe at least ${atLeast} '${eventName}' event(s)${filterPart}, but saw ${observedCount} within ${timeoutMs}ms.`,
-				);
+						? trackedEventCountExpression(eventName)
+						: trackedEventMatchCountExpression(eventName, detailIncludes);
+				try {
+					await driver.page.waitForExpression(
+						`${countExpression} >= ${atLeast}`,
+						timeoutMs,
+					);
+				} catch {
+					await syncTrackedEvents(driver.page, driver.record);
+					const occurrences = driver.record.trackedEvents[eventName] ?? [];
+					const observedCount =
+						detailIncludes === undefined
+							? occurrences.length
+							: occurrences.filter((occurrence) =>
+									trackedEventMatchesDetail(occurrence, detailIncludes),
+								).length;
+					const filterPart =
+						detailIncludes === undefined
+							? ''
+							: ` with detail containing ${JSON.stringify(detailIncludes)}`;
+					mismatches.push(
+						`events.${eventName}: expected at least ${atLeast} event(s)${filterPart}, observed ${observedCount} within ${timeoutMs}ms`,
+					);
+				}
 			}
 			await syncTrackedEvents(driver.page, driver.record);
-			passAssertion('page.event', driver.record.environment, null);
-		},
-		noNavigations: async (page): Promise<void> => {
-			const driver = getPageDriver(page, 'expect.page.noNavigations');
-			const navigations = driver.record.navigations;
-			if (navigations.length > 0) {
-				const urls = navigations.map((navigation) => navigation.url).join(', ');
+
+			if (expectation.navigations !== undefined) {
+				const navigations = driver.record.navigations;
+				observed.navigations = navigations.map((navigation) => navigation.url);
+				if (navigations.length !== expectation.navigations) {
+					const urls = navigations.map((navigation) => navigation.url).join(', ');
+					mismatches.push(
+						`navigations: expected ${expectation.navigations}, observed ${navigations.length}${urls === '' ? '' : ` (${urls})`}`,
+					);
+				}
+			}
+			if (expectation.consoleErrors !== undefined) {
+				const consoleErrors = driver.record.consoleMessages
+					.filter((message) => message.level === 'error')
+					.map((message) => message.text);
+				const pageErrors = driver.record.pageErrors.map((error) => error.message);
+				const problems = [...consoleErrors, ...pageErrors];
+				observed.consoleErrors = problems;
+				if (problems.length !== expectation.consoleErrors) {
+					const shown = problems.slice(0, 5).join('; ');
+					mismatches.push(
+						`consoleErrors: expected ${expectation.consoleErrors}, observed ${problems.length}${shown === '' ? '' : ` (${shown})`}`,
+					);
+				}
+			}
+			if (expectation.failedRequests !== undefined) {
+				const failures = driver.record.failedRequests;
+				observed.failedRequests = failures.map(
+					(failure) =>
+						`${failure.method} ${failure.url} (${failure.reason ?? 'unknown reason'})`,
+				);
+				if (failures.length !== expectation.failedRequests) {
+					const shown = (observed.failedRequests as string[]).slice(0, 5).join('; ');
+					mismatches.push(
+						`failedRequests: expected ${expectation.failedRequests}, observed ${failures.length}${shown === '' ? '' : ` (${shown})`}`,
+					);
+				}
+			}
+
+			if (mismatches.length > 0) {
 				failAssertion(
-					'page.noNavigations',
+					'page.outcome',
 					driver.record.environment,
 					null,
-					`expected page ${page.url} to stay on its initial document, but observed ${navigations.length} navigation(s): ${urls}.`,
+					`the recorded evidence for page ${page.url} did not match the expectation:\n  - ${mismatches.join('\n  - ')}`,
+					{ expected: expectation, observed },
 				);
 			}
-			passAssertion('page.noNavigations', driver.record.environment, null);
-		},
-		noFailedRequests: async (page): Promise<void> => {
-			const driver = getPageDriver(page, 'expect.page.noFailedRequests');
-			const failures = driver.record.failedRequests;
-			if (failures.length > 0) {
-				const shown = failures
-					.slice(0, 5)
-					.map(
-						(failure) =>
-							`${failure.method} ${failure.url} (${failure.reason ?? 'unknown reason'})`,
-					)
-					.join('; ');
-				failAssertion(
-					'page.noFailedRequests',
-					driver.record.environment,
-					null,
-					`expected page ${page.url} to have no failed requests, but captured ${failures.length} failed request(s): ${shown}`,
-				);
-			}
-			passAssertion('page.noFailedRequests', driver.record.environment, null);
-		},
-		cleanConsole: async (page): Promise<void> => {
-			const driver = getPageDriver(page, 'expect.page.cleanConsole');
-			const consoleErrors = driver.record.consoleMessages
-				.filter((message) => message.level === 'error')
-				.map((message) => message.text);
-			const pageErrors = driver.record.pageErrors.map((error) => error.message);
-			const problems = [...consoleErrors, ...pageErrors];
-			if (problems.length > 0) {
-				const shown = problems.slice(0, 5).join('; ');
-				failAssertion(
-					'page.cleanConsole',
-					driver.record.environment,
-					null,
-					`expected page ${page.url} to have a clean console, but captured ${problems.length} error(s): ${shown}`,
-				);
-			}
-			passAssertion('page.cleanConsole', driver.record.environment, null);
+			passAssertion('page.outcome', driver.record.environment, null, expectation);
 		},
 	};
 
-	const memo = new Map<string, EnvironmentExpectApi>();
-	const environmentNamespace = new Proxy({} as Record<string, EnvironmentExpectApi>, {
-		get: (_target, prop): EnvironmentExpectApi | undefined => {
-			if (typeof prop !== 'string' || prop === 'then' || prop === 'toJSON') {
-				return undefined;
-			}
-			let api = memo.get(prop);
-			if (api === undefined) {
-				api = createEnvironmentExpect(prop);
-				memo.set(prop, api);
-			}
-			return api;
-		},
-	});
-
-	const browserNamespace = new Proxy({} as EnvironmentExpectApi, {
-		get: (_target, prop): unknown => {
-			if (typeof prop !== 'string' || prop === 'then' || prop === 'toJSON') {
-				return undefined;
-			}
-			const api = environmentNamespace[getBrowserName()];
-			return api === undefined ? undefined : api[prop as keyof EnvironmentExpectApi];
-		},
-	});
-
 	return {
-		environment: environmentNamespace,
-		browser: browserNamespace,
+		edit: expectEdit,
 		page: pageNamespace,
 		html: {
 			contains: async (html: string, fragment: string): Promise<void> => {
@@ -724,55 +695,6 @@ export function createExpectApi(options: {
 					);
 				}
 				passAssertion('response.matches', response.environment, null);
-			},
-		},
-		pipeline: {
-			serverRestarted: async (
-				change: EditReceipt,
-				waitOptions?: ExpectWaitOptions,
-			): Promise<void> => {
-				const timeoutMs = waitOptions?.timeoutMs ?? defaultTimeoutMs;
-				let restartSeq = 0;
-				try {
-					const restart = await store.waitUntil(
-						`the Vite dev server to restart after editing ${change.file}`,
-						() =>
-							store.events.find(
-								(event) =>
-									event.kind === 'server-restart' && event.seq > change.seq,
-							),
-						timeoutMs,
-					);
-					restartSeq = restart.seq;
-				} catch {
-					failAssertion(
-						'pipeline.serverRestarted',
-						null,
-						change,
-						`expected the Vite dev server to restart after editing ${change.file}, but no restart was observed within ${timeoutMs}ms.`,
-					);
-				}
-				// Settle on the restarted server accepting connections again, so
-				// the box does not tear the server down mid-restart.
-				try {
-					await store.waitUntil(
-						'the restarted Vite dev server to start listening again',
-						() =>
-							store.events.find(
-								(event) =>
-									event.kind === 'server-listening' && event.seq > restartSeq,
-							),
-						timeoutMs,
-					);
-				} catch {
-					failAssertion(
-						'pipeline.serverRestarted',
-						null,
-						change,
-						`the Vite dev server began restarting after editing ${change.file}, but it did not start listening again within ${timeoutMs}ms.`,
-					);
-				}
-				passAssertion('pipeline.serverRestarted', null, change);
 			},
 		},
 		build: {

@@ -4,7 +4,7 @@ import type { DevEnvironment, Plugin } from 'vite';
 import type {
 	EditReceipt,
 	EnvironmentEditOutcome,
-	ViteCustomPayloadEvidence,
+	ViteHotMessageEvidence,
 	ViteModuleEvidence,
 	ViteUpdateEvidence,
 } from './types.ts';
@@ -348,7 +348,7 @@ export function classifyEditOutcome(options: {
 	let error: Record<string, unknown> | null = null;
 	let invalidated: ViteModuleEvidence[] = [];
 	const updates: ViteUpdateEvidence[] = [];
-	const customPayloads: ViteCustomPayloadEvidence[] = [];
+	const messages: ViteHotMessageEvidence[] = [];
 	let hookSeen = false;
 
 	for (const event of store.events) {
@@ -389,35 +389,39 @@ export function classifyEditOutcome(options: {
 			} else if (event.payload.type === 'custom' && event.source === 'channel') {
 				// Channel sends only: the websocket client mirrors the same
 				// payload and would double-count it.
-				customPayloads.push({
-					event: String(event.payload.event),
+				messages.push({
+					name: String(event.payload.event),
 					...(event.payload.data === undefined ? {} : { data: event.payload.data }),
 				});
 			}
 		}
 	}
 
-	// A custom payload after the hook observed the change is a terminal
+	// A framework hot message after the hook observed the change is a terminal
 	// reaction too: frameworks like qwik replace the 'update' protocol.
 	const settled =
 		update ||
 		fullReload ||
 		restart ||
 		error !== null ||
-		(hookSeen && (invalidated.length === 0 || customPayloads.length > 0));
+		(hookSeen && (invalidated.length === 0 || messages.length > 0));
+	const hmr: EnvironmentEditOutcome['hmr'] = fullReload
+		? 'full-reload'
+		: update
+			? 'accepted'
+			: 'none';
 	return {
 		settled,
 		hookSeen,
 		outcome: {
 			name: environmentName,
 			kind,
-			update,
-			fullReload,
+			hmr,
 			restart,
 			error,
 			invalidated,
 			updates,
-			customPayloads,
+			messages,
 			plugins: [],
 		},
 	};

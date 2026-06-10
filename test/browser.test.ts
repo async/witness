@@ -156,7 +156,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 					'page.visible',
 					'page.text',
 					'page.computedStyle',
-					'page.cleanConsole',
+					'page.outcome',
 				]),
 			);
 			expect(boxReceipt.assertions.every((entry) => entry.status === 'passed')).toBe(true);
@@ -227,8 +227,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 			expect(page.navigations).toEqual([]);
 
 			const assertionNames = boxReceipt.assertions.map((entry) => entry.name);
-			expect(assertionNames).toContain('page.event');
-			expect(assertionNames).toContain('page.noNavigations');
+			expect(assertionNames).toContain('page.outcome');
 			expect(boxReceipt.assertions.every((entry) => entry.status === 'passed')).toBe(true);
 
 			const timelineTypes = boxReceipt.timeline.map((event) => event.type);
@@ -273,7 +272,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 	);
 
 	test(
-		'detailIncludes that never matches fails the page.event assertion',
+		'detailIncludes that never matches fails the page.outcome assertion',
 		async () => {
 			const root = await createFixtureProject();
 			const boxes = await selectBoxes(
@@ -289,7 +288,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 			const receipt = await readReceipt(result.receiptPath);
 			expect(
 				receipt.boxes[0]!.assertions.some(
-					(entry) => entry.name === 'page.event' && entry.status === 'failed',
+					(entry) => entry.name === 'page.outcome' && entry.status === 'failed',
 				),
 			).toBe(true);
 		},
@@ -318,13 +317,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 
 			const assertionNames = boxReceipt.assertions.map((entry) => entry.name);
 			expect(assertionNames).toEqual(
-				expect.arrayContaining([
-					'page.attribute',
-					'page.noAttribute',
-					'page.containsText',
-					'page.notContainsText',
-					'page.noFailedRequests',
-				]),
+				expect.arrayContaining(['page.attribute', 'page.bodyText', 'page.outcome']),
 			);
 			expect(boxReceipt.assertions.every((entry) => entry.status === 'passed')).toBe(true);
 
@@ -335,13 +328,13 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 	);
 
 	test(
-		'notContainsText and noFailedRequests are falsifiable',
+		'bodyText notContains and failedRequests: 0 are falsifiable',
 		async () => {
 			const root = await createFixtureProject();
 			const boxes = await selectBoxes(
 				root,
-				'notContainsText fails while the text is still present',
-				'noFailedRequests fails after a failed page request',
+				'bodyText notContains fails while the text is still present',
+				'failedRequests: 0 fails after a failed page request',
 			);
 			const result = await runBoxes({ root, boxes, fileSystem, browser: hostBrowser });
 
@@ -349,17 +342,19 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 			expect(result.boxes[0]?.status).toBe('failed');
 			expect(result.boxes[0]?.error?.message).toContain('clicked 0 times');
 			expect(result.boxes[1]?.status).toBe('failed');
-			expect(result.boxes[1]?.error?.message).toContain('failed request');
+			expect(result.boxes[1]?.error?.message).toContain(
+				'failedRequests: expected 0, observed 1',
+			);
 
 			const receipt = await readReceipt(result.receiptPath);
 			expect(
 				receipt.boxes[0]!.assertions.some(
-					(entry) => entry.name === 'page.notContainsText' && entry.status === 'failed',
+					(entry) => entry.name === 'page.bodyText' && entry.status === 'failed',
 				),
 			).toBe(true);
 			expect(
 				receipt.boxes[1]!.assertions.some(
-					(entry) => entry.name === 'page.noFailedRequests' && entry.status === 'failed',
+					(entry) => entry.name === 'page.outcome' && entry.status === 'failed',
 				),
 			).toBe(true);
 		},
@@ -367,7 +362,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 	);
 
 	test(
-		'a page reload counts as a navigation and fails expect.page.noNavigations',
+		'a page reload counts as a navigation and fails the page outcome check',
 		async () => {
 			const root = await createFixtureProject();
 			const boxes = await selectBoxes(root, 'page reload is recorded as a navigation');
@@ -383,7 +378,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 			expect(page.navigations[0]!.url).toContain('127.0.0.1');
 			expect(
 				receipt.boxes[0]!.assertions.some(
-					(entry) => entry.name === 'page.noNavigations' && entry.status === 'failed',
+					(entry) => entry.name === 'page.outcome' && entry.status === 'failed',
 				),
 			).toBe(true);
 		},

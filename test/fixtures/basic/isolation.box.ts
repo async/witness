@@ -19,12 +19,9 @@ export const ClientEditIsolation = box(
 			code.replace('before edit', 'client after'),
 		);
 
-		await expect.environment.client.hotUpdate(change);
-		await expect.environment.client.invalidated(change, '/src/message.ts');
-		await expect.environment.ssr.notInvalidated(change);
-		await expect.environment.ssr.satisfies(
-			change,
-			(outcome) => !outcome.update && !outcome.fullReload && outcome.invalidated.length === 0,
-		);
+		await expect.edit(change, {
+			client: { hmr: 'accepted', invalidated: ['/src/message.ts'] },
+			ssr: { hmr: 'none', invalidated: [] },
+		});
 	},
 );
