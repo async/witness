@@ -48,14 +48,9 @@ Gumbox runs the box, restores the edited file, and writes a receipt to `.gumbox/
 pass or fail, human- and machine-readable. If the box fails, the receipt explains _why_ in
 Vite's own terms: what payload Vite sent, whether the server restarted, what the console said.
 
-```mermaid
-flowchart LR
-    edit["✏️ you edit<br/>src/message.ts"] --> vite["⚡ your real Vite pipeline<br/>dev server · HMR · SSR"] --> receipt["🧾 receipt.json<br/>hmr: accepted · 0 reloads"]
-
-    classDef default fill:#FFF7ED,stroke:#F97316,color:#7C2D12
-    classDef hot fill:#F97316,stroke:#C2410C,color:#ffffff
-    class receipt hot
-```
+<p align="center">
+  <img src="./assets/box-flow.svg" alt="you edit src/message.ts → your real Vite pipeline (dev server, HMR, SSR, build) → receipt.json: hmr accepted, 0 reloads" width="780" />
+</p>
 
 ## What a box can prove
 
