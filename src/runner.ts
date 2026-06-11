@@ -65,6 +65,30 @@ async function waitForWatcherReady(watcher: FSWatcher, timeoutMs: number): Promi
 	});
 }
 
+/**
+ * Vite starts a background dependency scan when the dev server begins
+ * listening. Closing the server while that scan is still resolving modules
+ * cancels it mid-request, and Vite logs a spurious "Failed to run dependency
+ * scan" error — so teardown lets pending scans settle before closing. The
+ * scan promise resolves on success, failure, and cancellation alike; the
+ * timeout only guards against a project plugin hanging the scanner forever.
+ */
+async function waitForPendingDependencyScans(
+	server: ViteDevServer,
+	timeoutMs: number,
+): Promise<void> {
+	const pendingScans = Object.values(server.environments)
+		.map((environment) => environment.depsOptimizer?.scanProcessing)
+		.filter((scan) => scan !== undefined);
+	if (pendingScans.length === 0) {
+		return;
+	}
+	const timeout = new Promise<void>((resolve) => {
+		AbortSignal.timeout(timeoutMs).addEventListener('abort', () => resolve());
+	});
+	await Promise.race([Promise.allSettled(pendingScans), timeout]);
+}
+
 type RunnerState = {
 	server: ViteDevServer | null;
 	runtime: EnvironmentRuntime | null;
@@ -374,6 +398,7 @@ async function runSingleBox(args: {
 		}
 		state.ws?.close();
 		if (state.server !== null) {
+			await waitForPendingDependencyScans(state.server, 10_000);
 			await state.server.close().catch(() => undefined);
 			recorder.timeline('server closed', {});
 		}

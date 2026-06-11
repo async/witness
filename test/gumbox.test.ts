@@ -874,4 +874,34 @@ describe('gumbox runtime', () => {
 		},
 		TEST_TIMEOUT_MS,
 	);
+
+	test(
+		'teardown waits for an in-flight dependency scan instead of logging a scan failure',
+		async () => {
+			const root = await createFixtureProject('slow-scan');
+			const boxes = await selectBoxes(root, 'box finishes before the dependency scan');
+
+			// Vite reports an aborted dependency scan through console.error
+			// (the box dev server runs at logLevel 'error'), so capture errors
+			// around the run to prove teardown no longer cancels the scan.
+			const errors: string[] = [];
+			const originalConsoleError = console.error;
+			console.error = (...args: unknown[]): void => {
+				errors.push(args.map(String).join(' '));
+			};
+			let result: Awaited<ReturnType<typeof runBoxes>>;
+			try {
+				result = await runBoxes({ root, boxes, fileSystem });
+			} finally {
+				console.error = originalConsoleError;
+			}
+
+			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+			const scanFailures = errors.filter((message) =>
+				message.includes('Failed to run dependency scan'),
+			);
+			expect(scanFailures).toEqual([]);
+		},
+		TEST_TIMEOUT_MS,
+	);
 });
