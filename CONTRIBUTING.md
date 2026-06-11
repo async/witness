@@ -162,7 +162,7 @@ Testing rules you'll be reviewed against:
 from `pathe`, module utils from `mlly`, globbing from `tinyglobby`, filesystem access through
 the injected `GumboxFileSystem`. Only explicit host boundaries (`src/cli/host.ts`,
 `test/support/*`) may adapt runtime APIs. Full policy:
-`.claude/rules/runtime-agnostic-tooling.md`.
+`.ruler/runtime-agnostic-tooling.md`.
 
 ## See it used for real
 

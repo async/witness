@@ -10,7 +10,7 @@ local smoke scripts. Specs in `specs/` are product truth.
 - `deno.json` is the canonical workspace/package manifest. This repo has no `package.json`; npm
   publishing requires a generated manifest or a separate release path.
 
-## Hard Tooling Rules (see `.claude/rules/runtime-agnostic-tooling.md`)
+## Hard Tooling Rules (see `.ruler/runtime-agnostic-tooling.md`)
 
 - Library and ordinary test code is runtime-agnostic: no `node:*` imports, no `process.*`, no
   `Deno.*`/`Bun.*`. Filesystem access is an injected `GumboxFileSystem`; only explicit host
@@ -21,4 +21,6 @@ local smoke scripts. Specs in `specs/` are product truth.
   babel, acorn, or a second JS parser. Prefer native (Rust-backed) tooling with TypeScript APIs and
   the unjs ecosystem.
 
-All rules in `.claude/rules/*.md` apply; they are hand-edited committed source.
+All rules in `.ruler/*.md` apply; they are hand-edited committed source. Run
+`npx @intellectronica/ruler apply` after editing them to regenerate the agent files
+(`CLAUDE.md`, `AGENTS.md`, `.claude/`, …) — never hand-edit the generated outputs.

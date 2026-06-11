@@ -90,5 +90,5 @@ deno task test      # run the test suite (drives real Vite pipelines)
 deno task check     # format check + lint + typecheck
 ```
 
-Start with [`specs/`](./specs/README.md) for intent, and `.claude/rules/` for the working
+Start with [`specs/`](./specs/README.md) for intent, and `.ruler/` for the working
 agreements.

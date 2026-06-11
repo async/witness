@@ -1,0 +1,23 @@
+# Ruler Configuration File
+# See https://ai.intellectronica.net/ruler for documentation.
+#
+# Source of truth for AI guidance is .ruler/*.md. Regenerate agent files with:
+#   npx @intellectronica/ruler apply
+
+# Default agents to enable when running `ruler apply`
+default_agents = ["claude", "codex"]
+
+# Enable nested rule loading from nested .ruler directories
+nested = false
+
+# --- Agent Specific Configurations ---
+
+[agents.claude]
+enabled = true
+output_path = "CLAUDE.md"
+
+[agents.codex]
+enabled = true
+
+# --- MCP Servers ---
+# Define Model Context Protocol servers here if needed
