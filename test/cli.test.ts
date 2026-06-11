@@ -151,7 +151,9 @@ describe('gumbox cli', () => {
 				}>;
 				invalidBoxFiles: Array<{ file: string; error: string }>;
 			};
-			expect(parsed.root).toBe(root);
+			// The CLI emits pathe-normalized (forward-slash) paths, while `root`
+			// comes from the host filesystem and uses backslashes on Windows.
+			expect(parsed.root).toBe(path.normalize(root));
 			expect(parsed.boxes).toHaveLength(12);
 			const isolation = parsed.boxes.find((entry) => entry.file === 'isolation.box.ts')!;
 			expect(isolation.name).toBe('client edit stays out of the ssr graph');
@@ -260,7 +262,8 @@ describe('gumbox cli', () => {
 				failed: Array<{ name: string; file: string; error: string | null }>;
 			};
 			expect(summary.status).toBe('failed');
-			expect(summary.root).toBe(root);
+			// pathe-normalized CLI output vs a native (backslash on Windows) tmp path.
+			expect(summary.root).toBe(path.normalize(root));
 			expect(summary.summary).toEqual({ total: 1, passed: 0, failed: 1 });
 			expect(summary.failed[0]!.name).toBe('intentionally failing box');
 			expect(summary.failed[0]!.error).toContain('intentional failure');
