@@ -1,0 +1,46 @@
+name: Feature request
+description: Something a box should be able to prove, but can't yet
+title: 'feat: '
+labels: ['enhancement']
+body:
+    - type: markdown
+      attributes:
+          value: |
+              The [specs](https://github.com/gumtools/gumbox/tree/main/specs) are the product
+              truth — worth a skim first, since what you want may already be designed and just
+              not built yet (see the Status section of the README for what's landed).
+    - type: textarea
+      id: problem
+      attributes:
+          label: What are you trying to prove about your pipeline?
+          description: >-
+              The pipeline behavior you want a box to assert, or the workflow gap you keep
+              papering over with smoke scripts. Focus on the problem — the API can come after.
+          placeholder: I want to assert that an edit to a worker file rebuilds only the worker bundle.
+      validations:
+          required: true
+    - type: textarea
+      id: proposal
+      attributes:
+          label: What would the box look like?
+          description: >-
+              Optional — sketch the box you wish you could write, in the existing vocabulary
+              where possible (`browser`, `project`, `expect`, receipts).
+          placeholder: |
+              ```ts
+              export default box('worker rebuilds in isolation', async ({ project, expect }) => {
+                // ...
+              });
+              ```
+    - type: textarea
+      id: alternatives
+      attributes:
+          label: Workarounds and alternatives
+          description: How are you handling this today, and why isn't that good enough?
+    - type: checkboxes
+      id: specs-check
+      attributes:
+          label: Specs
+          options:
+              - label: I checked `specs/` and didn't find this already designed
+                required: true

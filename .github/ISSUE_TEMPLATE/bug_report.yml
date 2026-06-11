@@ -1,0 +1,68 @@
+name: Bug report
+description: A box did the wrong thing, a receipt lied, or the pipeline misbehaved
+title: 'bug: '
+labels: ['bug']
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for the report! The fastest path to a fix is the **receipt** — gumbox writes
+              one to `.gumbox/receipts/` for every run, pass or fail, and it usually tells the
+              whole story. Paste it below if you have one.
+    - type: textarea
+      id: what-happened
+      attributes:
+          label: What happened
+          description: What did gumbox actually do?
+          placeholder: 'The box reported `hmr: accepted` but the browser did a full reload.'
+      validations:
+          required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: What you expected
+          description: What should the pipeline (or gumbox) have done instead?
+      validations:
+          required: true
+    - type: textarea
+      id: reproduction
+      attributes:
+          label: Reproduction
+          description: >-
+              The box file that triggers it, plus anything unusual about the project (Vite plugins,
+              environments, framework). A minimal repo link is gold but not required.
+          placeholder: |
+              ```ts
+              export default box('message updates without reload', async ({ browser, project, expect }) => {
+                // ...
+              });
+              ```
+      validations:
+          required: true
+    - type: textarea
+      id: receipt
+      attributes:
+          label: Receipt
+          description: >-
+              Paste the receipt JSON from `.gumbox/receipts/` for the failing run. This is
+              rendered as JSON automatically — no backticks needed.
+          render: json
+    - type: textarea
+      id: logs
+      attributes:
+          label: CLI output / logs
+          description: Terminal output from the `gumbox` run, if it adds anything the receipt doesn't.
+          render: shell
+    - type: textarea
+      id: environment
+      attributes:
+          label: Environment
+          description: gumbox is pre-release, so a commit SHA stands in for a version.
+          placeholder: |
+              gumbox: <commit SHA>
+              Vite: 7.x
+              Runtime: Node 24 / Deno 2.x / Bun 1.x
+              OS: macOS 15
+              Browser (if browser evidence is involved): Chromium 137
+      validations:
+          required: true
