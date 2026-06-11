@@ -82,6 +82,7 @@ as state-gallery entries.
 Recommended overloads:
 
 ```ts
+box(run);
 box(name, run);
 box(options, run);
 ```
@@ -90,12 +91,28 @@ Option sketch:
 
 ```ts
 type BoxOptions = {
-	name: string;
+	name?: string;
 	tags?: string[];
 	modes?: Array<'dev' | 'build' | 'preview' | (string & {})>;
 	ui?: boolean;
 };
 ```
+
+Names are optional (decision 2026-06-10, following Storybook CSF3's derived
+titles). Anonymous boxes derive a display name at discovery time:
+
+- an explicit `name` always wins;
+- a default export derives the file basename: `cart.box.ts` → `cart`;
+- a named export appends the export name: `export const full` in
+  `cart.box.ts` → `cart: full`;
+- when two derived names collide, the colliding ones upgrade to
+  relative-path bases (`scenarios/cart`) instead of erroring — two
+  directories may legitimately contain a `cart.box.ts`.
+
+Derivation is the floor for quick boxes and gallery states whose filename is
+the name. Descriptive explicit names stay the recommended practice for
+pipeline boxes: a name like `csr hmr: injected attribute appears without
+reload` is a one-line spec the receipt prints back.
 
 Examples:
 

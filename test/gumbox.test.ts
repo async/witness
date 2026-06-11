@@ -290,6 +290,36 @@ describe('gumbox runtime', () => {
 	);
 
 	test(
+		'derives names for anonymous boxes from filename and export name',
+		async () => {
+			const root = await createFixtureProject('derived');
+			const discovery = await discoverBoxes({ root });
+
+			expect(discovery.invalid).toEqual([]);
+			const names = discovery.boxes.map((entry) => entry.box.name).sort();
+			expect(names).toEqual([
+				// Root cart.box.ts default export collides with
+				// scenarios/cart.box.ts, so both derive from the relative path.
+				'cart',
+				// Named export: file base plus the export name.
+				'cart: full',
+				// Explicit names always win over derivation.
+				'explicit name wins',
+				// Options form without a name derives too.
+				'named: tagged',
+				'scenarios/cart',
+			]);
+
+			// Derived names flow through a run into results and receipts.
+			const boxes = await selectBoxes(root, 'scenarios/cart');
+			const result = await runBoxes({ root, boxes, fileSystem });
+			expect(result.status).toBe('passed');
+			expect(result.boxes[0]!.name).toBe('scenarios/cart');
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
 		'restorePendingEdits restores edits of boxes that never finished',
 		async () => {
 			const root = await createFixtureProject('interrupt');

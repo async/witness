@@ -2,7 +2,7 @@ import { fileURLToPath } from 'mlly';
 import path from 'pathe';
 import { glob } from 'tinyglobby';
 import { loadProjectVite, withoutNodeEnvLeak } from './vite-loader.ts';
-import { isBoxDefinition } from './box.ts';
+import { isBoxDefinition, withResolvedName } from './box.ts';
 import type { BoxDefinition, DiscoveredBox, DiscoveryResult, InvalidBoxFile } from './types.ts';
 
 const BOX_FILE_GLOB = '**/*.box.{ts,tsx}';
@@ -42,6 +42,57 @@ async function collectBoxFiles(root: string): Promise<string[]> {
 	return found.sort();
 }
 
+/** Strips the `.box.ts(x)` suffix from a root-relative box file path. */
+function withoutBoxExtension(relativeFile: string): string {
+	return relativeFile.replace(/\.box\.tsx?$/, '');
+}
+
+type PendingBox = {
+	file: string;
+	relativeFile: string;
+	exportName: string;
+	definition: BoxDefinition;
+};
+
+function deriveName(base: string, exportName: string): string {
+	return exportName === 'default' ? base : `${base}: ${exportName}`;
+}
+
+/**
+ * Resolves every box's display name. Explicit names always win. Anonymous
+ * boxes derive from the file basename ('cart' for cart.box.ts) plus the
+ * export name for named exports ('cart: full'). When two derived names
+ * collide, the colliding ones upgrade to relative-path bases instead
+ * ('scenarios/cart'), so names stay unique without erroring on a legitimate
+ * project layout.
+ */
+function resolveBoxNames(pending: PendingBox[]): DiscoveredBox[] {
+	const proposals = pending.map((entry) => {
+		if (entry.definition.name !== null) {
+			return { entry, name: entry.definition.name, derived: false };
+		}
+		const base = withoutBoxExtension(path.basename(entry.relativeFile));
+		return { entry, name: deriveName(base, entry.exportName), derived: true };
+	});
+	const nameCounts = new Map<string, number>();
+	for (const proposal of proposals) {
+		nameCounts.set(proposal.name, (nameCounts.get(proposal.name) ?? 0) + 1);
+	}
+	return proposals.map(({ entry, name, derived }) => {
+		const collides = (nameCounts.get(name) ?? 0) > 1;
+		const resolved =
+			derived && collides
+				? deriveName(withoutBoxExtension(entry.relativeFile), entry.exportName)
+				: name;
+		return {
+			file: entry.file,
+			relativeFile: entry.relativeFile,
+			exportName: entry.exportName,
+			box: withResolvedName(entry.definition, resolved),
+		};
+	});
+}
+
 /**
  * Finds `*.box.ts` / `*.box.tsx` files under the root and loads them through
  * Vite's module runner (`runnerImport`), so box files stay TypeScript without
@@ -50,7 +101,7 @@ async function collectBoxFiles(root: string): Promise<string[]> {
  */
 export async function discoverBoxes(options: { root: string }): Promise<DiscoveryResult> {
 	const root = path.resolve(options.root);
-	const boxes: DiscoveredBox[] = [];
+	const pending: PendingBox[] = [];
 	const invalid: InvalidBoxFile[] = [];
 	const vite = await loadProjectVite(root);
 	for (const file of await collectBoxFiles(root)) {
@@ -79,7 +130,7 @@ export async function discoverBoxes(options: { root: string }): Promise<Discover
 				continue;
 			}
 			for (const [exportName, definition] of exported) {
-				boxes.push({ file, relativeFile, exportName, box: definition });
+				pending.push({ file, relativeFile, exportName, definition });
 			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
@@ -90,5 +141,5 @@ export async function discoverBoxes(options: { root: string }): Promise<Discover
 			});
 		}
 	}
-	return { root, boxes, invalid };
+	return { root, boxes: resolveBoxNames(pending), invalid };
 }

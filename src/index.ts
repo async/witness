@@ -69,6 +69,7 @@ export type {
 	ExpectWaitOptions,
 	InvalidBoxFile,
 	Measurement,
+	NamedBoxDefinition,
 	PageEventExpectation,
 	PageExpectApi,
 	PageOutcomeExpectation,

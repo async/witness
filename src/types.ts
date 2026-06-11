@@ -3,10 +3,12 @@ import type { GumboxBrowser, PageHandle } from './browser.ts';
 import type { GumboxFileSystem } from './filesystem.ts';
 
 /**
- * Options accepted by `box(options, run)`.
+ * Options accepted by `box(options, run)`. The name is optional: anonymous
+ * boxes derive one at discovery time from the file basename and, for named
+ * exports, the export name.
  */
 export type BoxOptions = {
-	name: string;
+	name?: string;
 	tags?: string[];
 	modes?: Array<'dev' | 'build' | 'preview' | (string & Record<never, never>)>;
 	ui?: boolean;
@@ -17,15 +19,19 @@ export type BoxRunFn = (context: BoxContext) => Promise<void> | void;
 /**
  * The value returned by `box(...)`. Recognized across module instances via a
  * `Symbol.for` brand, so box files loaded through a Vite module runner still
- * count as boxes.
+ * count as boxes. `name` is null for anonymous boxes until discovery derives
+ * one from the file and export.
  */
 export type BoxDefinition = {
-	readonly name: string;
+	readonly name: string | null;
 	readonly tags: readonly string[];
 	readonly modes: readonly string[];
 	readonly ui: boolean;
 	readonly run: BoxRunFn;
 };
+
+/** A box definition after discovery resolved its name. */
+export type NamedBoxDefinition = Omit<BoxDefinition, 'name'> & { readonly name: string };
 
 /**
  * The exact six-key context passed to a box run function.
@@ -529,7 +535,8 @@ export type DiscoveredBox = {
 	file: string;
 	relativeFile: string;
 	exportName: string;
-	box: BoxDefinition;
+	/** Discovery always resolves a name, deriving one for anonymous boxes. */
+	box: NamedBoxDefinition;
 };
 
 export type InvalidBoxFile = {
