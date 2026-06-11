@@ -1,62 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+  <style>
+    .card { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1.5; }
+    .title { fill: #1f2328; font-size: 26px; font-weight: 600; }
+    .muted { fill: #59636e; font-size: 21px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; }
+    .ok { fill: #1a7f37; font-size: 21px; }
+    .arrow { stroke: #818b98; }
+    .arrowhead { fill: #818b98; }
+    @media (prefers-color-scheme: dark) {
+      .card { fill: #161b22; stroke: #3d444d; }
+      .title { fill: #e6edf2; }
+      .muted { fill: #9198a1; }
+      .ok { fill: #3fb950; }
+      .arrow { stroke: #767e89; }
+      .arrowhead { fill: #767e89; }
+    }
+  </style>
   <defs>
-    <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#7C2D12" flood-opacity="0.18"/>
-    </filter>
-    <linearGradient id="receipt-fill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FB923C"/>
-      <stop offset="1" stop-color="#EA580C"/>
-    </linearGradient>
-    <marker id="arrow" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
-      <path d="M1.5 1.5 L10.5 6 L1.5 10.5 Q3.5 6 1.5 1.5 Z" fill="#F97316"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" class="arrowhead"/>
     </marker>
   </defs>
 
   <!-- sparkles, echoing the banner artwork -->
   <g fill="#F9A8D4">
-    <path d="M120 52 l4.5 13 13 4.5 -13 4.5 -4.5 13 -4.5 -13 -13 -4.5 13 -4.5 Z"/>
-    <path d="M1043 198 l4.5 13 13 4.5 -13 4.5 -4.5 13 -4.5 -13 -13 -4.5 13 -4.5 Z"/>
+    <path d="M120 38 l4.5 13 13 4.5 -13 4.5 -4.5 13 -4.5 -13 -13 -4.5 13 -4.5 Z"/>
+    <path d="M1043 178 l4.5 13 13 4.5 -13 4.5 -4.5 13 -4.5 -13 -13 -4.5 13 -4.5 Z"/>
   </g>
   <g fill="#FB923C">
-    <path d="M448 206 l3.5 10 10 3.5 -10 3.5 -3.5 10 -3.5 -10 -10 -3.5 10 -3.5 Z" opacity="0.9"/>
-    <path d="M1024 50 l3.5 10 10 3.5 -10 3.5 -3.5 10 -3.5 -10 -10 -3.5 10 -3.5 Z" opacity="0.9"/>
+    <path d="M448 186 l3.5 10 10 3.5 -10 3.5 -3.5 10 -3.5 -10 -10 -3.5 10 -3.5 Z" opacity="0.9"/>
+    <path d="M1024 34 l3.5 10 10 3.5 -10 3.5 -3.5 10 -3.5 -10 -10 -3.5 10 -3.5 Z" opacity="0.9"/>
   </g>
   <g fill="#EC4899" opacity="0.75">
-    <circle cx="180" cy="216" r="4"/>
-    <circle cx="1396" cy="74" r="4"/>
-    <circle cx="760" cy="44" r="3.5"/>
+    <circle cx="180" cy="196" r="4"/>
+    <circle cx="1396" cy="52" r="4"/>
+    <circle cx="760" cy="30" r="3.5"/>
   </g>
 
   <!-- card 1: the edit -->
-  <g filter="url(#card-shadow)">
-    <rect x="60" y="84" width="360" height="112" rx="20" fill="#FFF7ED" stroke="#F97316" stroke-width="3"/>
-  </g>
-  <text x="240" y="132" text-anchor="middle" font-size="27" font-weight="700" fill="#9A3412">✏️ you edit</text>
-  <text x="240" y="170" text-anchor="middle" font-size="24" fill="#7C2D12" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">src/message.ts</text>
+  <rect x="60" y="69" width="360" height="112" rx="12" class="card"/>
+  <text x="240" y="117" text-anchor="middle" class="title">✏️ you edit</text>
+  <text x="240" y="155" text-anchor="middle" class="muted mono">src/message.ts</text>
 
   <!-- arrow 1 -->
-  <path d="M432 140 C 472 140, 488 140, 528 140" fill="none" stroke="#F97316" stroke-width="4.5" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <line x1="436" y1="125" x2="532" y2="125" class="arrow" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow)"/>
 
   <!-- card 2: the pipeline -->
-  <g filter="url(#card-shadow)">
-    <rect x="552" y="84" width="430" height="112" rx="20" fill="#FFF7ED" stroke="#F97316" stroke-width="3"/>
-  </g>
-  <text x="767" y="132" text-anchor="middle" font-size="27" font-weight="700" fill="#9A3412">⚡ your real Vite pipeline</text>
-  <text x="767" y="169" text-anchor="middle" font-size="23" fill="#B45309" letter-spacing="0.5">dev server&#160;&#160;·&#160;&#160;HMR&#160;&#160;·&#160;&#160;SSR&#160;&#160;·&#160;&#160;build</text>
+  <rect x="552" y="69" width="430" height="112" rx="12" class="card"/>
+  <text x="767" y="117" text-anchor="middle" class="title">⚡ your real Vite pipeline</text>
+  <text x="767" y="154" text-anchor="middle" class="muted">dev server&#160;&#160;·&#160;&#160;HMR&#160;&#160;·&#160;&#160;SSR&#160;&#160;·&#160;&#160;build</text>
 
   <!-- arrow 2 -->
-  <path d="M994 140 C 1034 140, 1050 140, 1090 140" fill="none" stroke="#F97316" stroke-width="4.5" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <line x1="998" y1="125" x2="1094" y2="125" class="arrow" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow)"/>
 
-  <!-- card 3: the receipt, ticket-style -->
-  <g filter="url(#card-shadow)">
-    <rect x="1114" y="72" width="386" height="136" rx="20" fill="url(#receipt-fill)" stroke="#C2410C" stroke-width="3"/>
-  </g>
-  <!-- ticket perforation notches -->
-  <circle cx="1114" cy="140" r="11" fill="#FFF7ED" stroke="#C2410C" stroke-width="3"/>
-  <circle cx="1500" cy="140" r="11" fill="#FFF7ED" stroke="#C2410C" stroke-width="3"/>
-  <text x="1307" y="121" text-anchor="middle" font-size="27" font-weight="700" fill="#FFFFFF">🧾 receipt.json</text>
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="21" fill="#FFEDD5">
-    <text x="1307" y="155" text-anchor="middle">hmr: accepted ✓</text>
-    <text x="1307" y="184" text-anchor="middle">reloads: 0 ✓</text>
-  </g>
+  <!-- card 3: the receipt -->
+  <rect x="1114" y="57" width="386" height="136" rx="12" class="card"/>
+  <text x="1307" y="103" text-anchor="middle" class="title">🧾 receipt.json</text>
+  <text x="1307" y="139" text-anchor="middle" class="ok mono">hmr: accepted ✓</text>
+  <text x="1307" y="169" text-anchor="middle" class="ok mono">reloads: 0 ✓</text>
 </svg>
