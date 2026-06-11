@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./gumbox.png" alt="Gumbox — prove changes faster, catch regressions early" width="820" />
+  <img src="./assets/gumbox.png" alt="Gumbox — prove changes faster, catch regressions early" width="820" />
 </p>
 
 # Gumbox
