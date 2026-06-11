@@ -70,6 +70,27 @@ it. That gap is how "all tests pass" and "the app is broken" happen at the same 
 owns the pipeline: the chain from an edit to a Vite environment event to what you see, with a
 receipt preserving the whole story.
 
+## Bring your own browser
+
+Gumbox drives a Chromium-family browser already on your machine over the Chrome DevTools
+Protocol — no playwright dependency, no download at install time. Discovery order:
+
+1. `GUMBOX_BROWSER_PATH` — explicit override. If it's set but doesn't point at an executable,
+   discovery fails with an error instead of silently falling through to another browser.
+2. System installs of Chrome, Edge, or Chromium, in the usual per-OS locations.
+3. Playwright's browser cache as a courtesy fallback (`~/Library/Caches/ms-playwright` on
+   macOS, `$XDG_CACHE_HOME` or `~/.cache/ms-playwright` on Linux,
+   `%LOCALAPPDATA%\ms-playwright` on Windows) — full `chromium-<revision>` downloads only,
+   newest first, the headless shell is skipped.
+
+macOS and Linux are exercised. Windows discovery paths exist but are unverified — when
+nothing is found, gumbox fails with the exact paths it checked.
+
+**Migrating from the playwright-core era?** Gumbox used to load `playwright-core` if it was
+present. Now it finds your browser directly, and if you only have playwright's downloaded
+Chromium, the cache fallback still picks it up. If discovery fails, set `GUMBOX_BROWSER_PATH`
+or install Chrome.
+
 ## Docs
 
 - **[Specs](./specs/README.md)** — product direction and the source of truth

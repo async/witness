@@ -1,7 +1,7 @@
 /**
- * Test-only host boundary for browser automation. The actual playwright-core
- * adaptation lives in the CLI host boundary (`src/cli/browser-host.ts`); this
- * module instantiates it for tests and adds availability detection so the
+ * Test-only host boundary for browser automation. The actual CDP adapter
+ * lives in the CLI host boundary (`src/cli/browser-host.ts`); this module
+ * instantiates it for tests and adds availability detection so the
  * browser-dependent suites skip (with a reason) on machines without any
  * launchable Chromium-family browser.
  */
