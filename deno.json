@@ -22,9 +22,10 @@
 		"build": "deno task manifest && vp pack",
 		"cli": "deno run -A ./src/cli/gumbox.ts",
 		"manifest": "deno run --allow-read=. --allow-write=. ./scripts/generate-package-json.ts",
-		"fmt": "VP_VERSION=0.1.20 deno run -A npm:oxfmt@0.46.0 --write --config vite.config.ts .",
-		"fmt:check": "VP_VERSION=0.1.20 deno run -A npm:oxfmt@0.46.0 --check --config vite.config.ts .",
-		"lint": "VP_VERSION=0.1.20 deno run -A npm:oxlint@1.61.0 --config vite.config.ts src test/browser.test.ts test/cli.test.ts test/file-url.test.ts test/gumbox.test.ts test/index.test.ts test/vite-loader.test.ts test/support/host-browser.ts test/support/host-file-system.ts vite.config.ts",
+		"release": "deno run -A ./scripts/release.ts",
+		"fmt": "vp fmt",
+		"fmt:check": "vp fmt --check",
+		"lint": "vp lint",
 		"typecheck": "tsc --noEmit",
 		"check": "deno task manifest && vp check"
 	}
