@@ -63,8 +63,6 @@ Vite's own terms: what payload Vite sent, whether the server restarted, what the
 - Artifacts are right — manifest entries, no stale placeholders, no `node:fs` in worker bundles
 - A workflow stayed inside a performance budget
 
-Each of these is a copy-paste recipe in the [guide](./docs/guide.md#recipes).
-
 ## Why not Vitest / Playwright / Storybook?
 
 They're great at what they own — but they see the **page**, not the **pipeline** that produced
@@ -74,14 +72,14 @@ receipt preserving the whole story.
 
 ## Docs
 
-- **[Guide](./docs/guide.md)** — quick start, the box API, recipes, the CLI, and receipts
 - **[Specs](./specs/README.md)** — product direction and the source of truth
+
+The website is being worked on at [gum.tools](https://gum.tools).
 
 ## Status
 
 Built in slices. Box authoring, dev/build/preview runs, browser evidence, the CLI, and JSON
-receipts work today. The state-gallery UI, generated types, and receipt replay are coming —
-full list in the [guide](./docs/guide.md#what-works-today).
+receipts work today. The state-gallery UI, generated types, and receipt replay are coming.
 
 ## Contributing
 
@@ -94,5 +92,5 @@ deno task test      # run the test suite (drives real Vite pipelines)
 deno task check     # format check + lint + typecheck
 ```
 
-Start with [`specs/`](./specs/README.md) for intent, and `.ruler/` for the working
-agreements.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full setup. Start with
+[`specs/`](./specs/README.md) for intent, and `.ruler/` for the working agreements.
