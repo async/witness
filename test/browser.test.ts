@@ -43,6 +43,12 @@ type PreviewEntry = {
 	browserAlias: string;
 };
 
+type WitnessEntry = {
+	verdict: string;
+	statements: number;
+	against: Array<{ kind: string; page?: string; at: string; text: string }>;
+};
+
 type ReceiptBox = {
 	name: string;
 	status: string;
@@ -52,6 +58,8 @@ type ReceiptBox = {
 	previews: PreviewEntry[];
 	assertions: Array<{ name: string; status: string; environment: string | null }>;
 	timeline: Array<Record<string, unknown>>;
+	witnesses: Record<string, WitnessEntry>;
+	summary: { contested: boolean; witnesses: Record<string, string> };
 };
 
 type ReceiptJson = {
@@ -105,7 +113,8 @@ describe('browser capability boundary', () => {
 
 			expect(result.status).toBe('failed');
 			expect(result.boxes[0]?.error?.message).toContain('browser automation capability');
-			expect(result.boxes[0]?.error?.message).toContain('playwright');
+			expect(result.boxes[0]?.error?.message).toContain('Chromium-family browser');
+			expect(result.boxes[0]?.error?.message).toContain('GUMBOX_BROWSER_PATH');
 		},
 		TEST_TIMEOUT_MS,
 	);
@@ -403,6 +412,138 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 					(entry) => entry.name === 'page.text' && entry.status === 'failed',
 				),
 			).toBe(true);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'an uncaught page error contests a passing box: client testimony contradicts',
+		async () => {
+			const root = await createFixtureProject();
+			const boxes = await selectBoxes(
+				root,
+				'uncaught page error stays evidence on a passing box',
+			);
+			const result = await runBoxes({ root, boxes, fileSystem, browser: hostBrowser });
+
+			// The box passes — a contradicting witness never fails a passing box.
+			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+			expect(result.boxes[0]!.contested).toBe(true);
+
+			const receipt = await readReceipt(result.receiptPath);
+			const boxReceipt = receipt.boxes[0]!;
+			const page = boxReceipt.pages[0]!;
+
+			// The pageErrors evidence class records the uncaught error end-to-end.
+			expect(page.pageErrors.length).toBeGreaterThan(0);
+			expect(
+				page.pageErrors.some((error) => error.message.includes('boom from the fixture')),
+			).toBe(true);
+			expect(page.failedRequests.length).toBeGreaterThan(0);
+
+			// Witness testimony: client and driver contradict, the box corroborates.
+			expect(boxReceipt.witnesses['client']!.verdict).toBe('contradicts');
+			expect(
+				boxReceipt.witnesses['client']!.against.some(
+					(statement) =>
+						statement.kind === 'page-error' &&
+						statement.text.includes('boom from the fixture'),
+				),
+			).toBe(true);
+			expect(boxReceipt.witnesses['driver']!.verdict).toBe('contradicts');
+			expect(boxReceipt.witnesses['driver']!.against[0]).toMatchObject({
+				kind: 'request-failed',
+			});
+			expect(boxReceipt.witnesses['box']!.verdict).toBe('corroborates');
+			expect(boxReceipt.summary.contested).toBe(true);
+			expect(boxReceipt.summary.witnesses['client']).toBe('contradicts');
+			expect(boxReceipt.assertions.every((entry) => entry.status === 'passed')).toBe(true);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'the CLI renders contested witness tokens and gumbox evidence drills into testimony',
+		async () => {
+			const root = await createFixtureProject();
+			const runLines: string[] = [];
+			const runCode = await runCli(['uncaught page error'], {
+				cwd: root,
+				fileSystem,
+				browser: hostBrowser,
+				stdout: (line) => runLines.push(line),
+				stderr: () => undefined,
+			});
+			expect(runCode, runLines.join('\n')).toBe(0);
+			const runOutput = runLines.join('\n');
+			expect(runOutput).toContain('[pipeline+ client! driver!]');
+			expect(runOutput).toContain('contested');
+			expect(runOutput).toContain('1 contested pass');
+			expect(runOutput).toMatch(/client reported: .*page error/);
+			expect(runOutput).toMatch(/driver reported: 1 failed request/);
+
+			// Drill-down reads the latest receipt by default.
+			const evidenceLines: string[] = [];
+			const evidenceCode = await runCli(['evidence', 'uncaught page error'], {
+				cwd: root,
+				fileSystem,
+				stdout: (line) => evidenceLines.push(line),
+				stderr: () => undefined,
+			});
+			expect(evidenceCode).toBe(0);
+			const evidenceOutput = evidenceLines.join('\n');
+			expect(evidenceOutput).toContain(
+				'case: uncaught page error stays evidence on a passing box — pass, contested',
+			);
+			// The crime blotter lists every against-statement before the
+			// per-witness testimony, each attributed to its reporting witness.
+			expect(evidenceOutput).toContain('crimes reported (');
+			expect(evidenceOutput).toContain('— reported by client');
+			expect(evidenceOutput).toContain('— reported by driver');
+			expect(evidenceOutput.indexOf('crimes reported (')).toBeLessThan(
+				evidenceOutput.indexOf('pipeline witness'),
+			);
+			expect(evidenceOutput).toContain('pipeline witness — corroborates');
+			expect(evidenceOutput).toContain('client witness — reports a crime (');
+			expect(evidenceOutput).toContain('! page error');
+			expect(evidenceOutput).toContain('boom from the fixture');
+			expect(evidenceOutput).toContain('driver witness — reports a crime (');
+			expect(evidenceOutput).toContain('! request failed');
+			expect(evidenceOutput).toContain('box — corroborates');
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'waitForExpression survives a mid-wait reload and resolves on the new document',
+		async () => {
+			// Pins the navigation semantic of the in-page wait: a reload
+			// destroys the wait's execution context, and the wait retries
+			// against the new document with the remaining time budget.
+			const session = await hostBrowser.launch({ headless: true });
+			try {
+				const page = await session.newPage();
+				// about:blank, not a data: URL — Chrome blocks renderer-initiated
+				// reloads of top-frame data: documents.
+				await page.goto('about:blank');
+				// window.name survives the reload while the marker dies with
+				// its document, so the predicate can only turn true on the
+				// document created by the mid-wait reload.
+				await page.evaluate(
+					`(() => {
+						window.name = 'gumbox-nav-wait';
+						window.__gumboxOldDocumentMarker = true;
+						setTimeout(() => location.reload(), 100);
+					})()`,
+				);
+				await page.waitForExpression(
+					`window.name === 'gumbox-nav-wait' && window.__gumboxOldDocumentMarker !== true`,
+					10_000,
+				);
+				await page.close();
+			} finally {
+				await session.close();
+			}
 		},
 		TEST_TIMEOUT_MS,
 	);
