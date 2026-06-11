@@ -30,14 +30,9 @@ automatically on machines without one — nothing to download.
 
 Everything in this codebase serves one loop:
 
-```mermaid
-flowchart LR
-    box["📦 cart.box.ts"] --> vite["real Vite pipeline<br/>dev · build · preview"] --> evidence["evidence<br/>HMR · modules · console"] --> receipt["🧾 receipt.json"]
-
-    classDef default fill:#FFF7ED,stroke:#F97316,color:#7C2D12
-    classDef hot fill:#F97316,stroke:#C2410C,color:#ffffff
-    class box,receipt hot
-```
+<p align="center">
+  <img src="./assets/contrib-box-run.svg" alt="cart.box.ts → real Vite pipeline (dev, build, preview) → evidence (HMR, modules, console) → receipt.json" width="820" />
+</p>
 
 A box looks like this:
 
@@ -81,18 +76,9 @@ observed), and a causal timeline.
 
 How one box run flows through `src/`:
 
-```mermaid
-flowchart LR
-    cli["cli/"] --> discovery["discovery.ts"] --> runner["runner.ts"]
-    runner --> project["project.ts"] --> evidence["evidence.ts"]
-    runner --> pipeline["build.ts<br/>preview.ts"] --> evidence
-    runner --> browser["browser.ts"] --> evidence
-    evidence --> expect["expect.ts"] --> receipt["receipt.ts"]
-
-    classDef default fill:#FFF7ED,stroke:#F97316,color:#7C2D12
-    classDef hot fill:#F97316,stroke:#C2410C,color:#ffffff
-    class runner,evidence hot
-```
+<p align="center">
+  <img src="./assets/contrib-code-map.svg" alt="cli → discovery.ts → runner.ts, fanning out to project.ts, build.ts/preview.ts, and browser.ts, converging into evidence.ts → expect.ts → receipt.ts" width="860" />
+</p>
 
 | Place                            | Owns                                                                           |
 | -------------------------------- | ------------------------------------------------------------------------------ |
@@ -111,14 +97,9 @@ flowchart LR
 
 ## Making a change
 
-```mermaid
-flowchart LR
-    spec["1 · check<br/>specs/"] --> test["2 · failing<br/>test"] --> impl["3 · smallest<br/>fix"] --> verify["4 · test ·<br/>build · check"] --> pr["PR 🎉"]
-
-    classDef default fill:#FFF7ED,stroke:#F97316,color:#7C2D12
-    classDef hot fill:#F97316,stroke:#C2410C,color:#ffffff
-    class test,impl hot
-```
+<p align="center">
+  <img src="./assets/contrib-workflow.svg" alt="1 check specs → 2 failing test first → 3 smallest fix → 4 verify (test, build, check) → PR" width="860" />
+</p>
 
 1. Find the spec section that covers the behavior (`specs/box-authoring.md` for the API,
    `specs/scenarios-and-receipts.md` for receipts). If your change contradicts it, the spec

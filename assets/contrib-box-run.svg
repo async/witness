@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+  <style>
+    .card { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1.5; }
+    .title { fill: #1f2328; font-size: 25px; font-weight: 600; }
+    .muted { fill: #59636e; font-size: 21px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; }
+    .arrow { stroke: #818b98; }
+    .arrowhead { fill: #818b98; }
+    @media (prefers-color-scheme: dark) {
+      .card { fill: #161b22; stroke: #3d444d; }
+      .title { fill: #e6edf2; }
+      .muted { fill: #9198a1; }
+      .arrow { stroke: #767e89; }
+      .arrowhead { fill: #767e89; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" class="arrowhead"/>
+    </marker>
+  </defs>
+
+  <g fill="#F9A8D4">
+    <path d="M110 40 l4.5 13 13 4.5 -13 4.5 -4.5 13 -4.5 -13 -13 -4.5 13 -4.5 Z"/>
+    <path d="M1250 182 l4.5 13 13 4.5 -13 4.5 -4.5 13 -4.5 -13 -13 -4.5 13 -4.5 Z"/>
+  </g>
+  <g fill="#FB923C">
+    <path d="M400 186 l3.5 10 10 3.5 -10 3.5 -3.5 10 -3.5 -10 -10 -3.5 10 -3.5 Z" opacity="0.9"/>
+    <path d="M866 36 l3.5 10 10 3.5 -10 3.5 -3.5 10 -3.5 -10 -10 -3.5 10 -3.5 Z" opacity="0.9"/>
+  </g>
+  <g fill="#EC4899" opacity="0.75">
+    <circle cx="640" cy="200" r="4"/>
+    <circle cx="1450" cy="46" r="4"/>
+  </g>
+
+  <rect x="60" y="69" width="320" height="112" rx="12" class="card"/>
+  <text x="220" y="134" text-anchor="middle" class="title">📦 cart.box.ts</text>
+
+  <line x1="394" y1="125" x2="430" y2="125" class="arrow" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <rect x="446" y="69" width="396" height="112" rx="12" class="card"/>
+  <text x="644" y="117" text-anchor="middle" class="title">⚡ real Vite pipeline</text>
+  <text x="644" y="154" text-anchor="middle" class="muted">dev&#160;&#160;·&#160;&#160;build&#160;&#160;·&#160;&#160;preview</text>
+
+  <line x1="856" y1="125" x2="892" y2="125" class="arrow" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <rect x="908" y="69" width="350" height="112" rx="12" class="card"/>
+  <text x="1083" y="117" text-anchor="middle" class="title">evidence</text>
+  <text x="1083" y="154" text-anchor="middle" class="muted">HMR&#160;&#160;·&#160;&#160;modules&#160;&#160;·&#160;&#160;console</text>
+
+  <line x1="1272" y1="125" x2="1308" y2="125" class="arrow" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <rect x="1324" y="69" width="216" height="112" rx="12" class="card"/>
+  <text x="1432" y="118" text-anchor="middle" class="title">🧾</text>
+  <text x="1432" y="153" text-anchor="middle" class="muted mono">receipt.json</text>
+</svg>
