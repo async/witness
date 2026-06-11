@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'mlly';
 import path from 'pathe';
 import { afterEach, describe, expect, test } from 'vitest';
+import { fileURLToPath } from '../src/file-url.ts';
 import { discoverBoxes, restorePendingEdits, runBoxes } from '../src/index.ts';
 import type { DiscoveredBox } from '../src/index.ts';
 import { orderBoxesForRun } from '../src/runner.ts';

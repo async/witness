@@ -1,7 +1,7 @@
-import { fileURLToPath } from 'mlly';
 import path from 'pathe';
 import { afterEach, describe, expect, test } from 'vitest';
 import { box } from '../src/box.ts';
+import { fileURLToPath } from '../src/file-url.ts';
 import { runCli } from '../src/cli/run-cli.ts';
 import { matchesBoxSelector } from '../src/cli/selector.ts';
 import type { DiscoveredBox } from '../src/index.ts';

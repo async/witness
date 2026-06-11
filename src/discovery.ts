@@ -1,5 +1,5 @@
-import { fileURLToPath } from 'mlly';
 import path from 'pathe';
+import { fileURLToPath } from './file-url.ts';
 import { glob } from 'tinyglobby';
 import { loadProjectVite, withoutNodeEnvLeak } from './vite-loader.ts';
 import { isBoxDefinition, withResolvedName } from './box.ts';

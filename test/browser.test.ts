@@ -1,7 +1,7 @@
-import { fileURLToPath } from 'mlly';
 import path from 'pathe';
 import { afterEach, describe, expect, test } from 'vitest';
 import { runCli } from '../src/cli/run-cli.ts';
+import { fileURLToPath } from '../src/file-url.ts';
 import { discoverBoxes, runBoxes } from '../src/index.ts';
 import type { DiscoveredBox } from '../src/index.ts';
 import { detectBrowserAvailability, hostBrowser } from './support/host-browser.ts';
