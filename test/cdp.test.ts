@@ -258,7 +258,12 @@ describe('playwright cache fallback', () => {
 	});
 });
 
-type SentMessage = { id: number; method: string; params?: Record<string, unknown> };
+type SentMessage = {
+	id: number;
+	method: string;
+	params?: Record<string, unknown>;
+	sessionId?: string;
+};
 
 /** In-memory CdpSocket: captures sends and lets the test push frames back. */
 function createFakeSocket() {
@@ -341,6 +346,120 @@ describe('cdp connection', () => {
 
 		await expect(pending).rejects.toThrow(/closed/);
 		expect(isClosed()).toBe(true);
+	});
+});
+
+describe('cdp session routing (flatten)', () => {
+	test('two sessions interleave calls on one socket with globally unique ids', async () => {
+		const { socket, sent, receive } = createFakeSocket();
+		const connection = createCdpConnection(socket);
+		const sessionA = connection.session('session-a');
+		const sessionB = connection.session('session-b');
+
+		const fromA = sessionA.send('Runtime.evaluate', { expression: 'a' });
+		const fromB = sessionB.send('Runtime.evaluate', { expression: 'b' });
+		const fromRoot = connection.send('Target.getTargets');
+
+		expect(sent).toHaveLength(3);
+		expect(sent[0]!.sessionId).toBe('session-a');
+		expect(sent[1]!.sessionId).toBe('session-b');
+		expect(sent[2]!.sessionId).toBeUndefined();
+		// One global monotonic id sequence keeps ids unique across sessions.
+		expect(new Set(sent.map((message) => message.id)).size).toBe(3);
+
+		// Responses arrive out of order; each resolves its own session's call.
+		receive({ id: sent[1]!.id, sessionId: 'session-b', result: { result: { value: 'b!' } } });
+		receive({ id: sent[0]!.id, sessionId: 'session-a', result: { result: { value: 'a!' } } });
+		receive({ id: sent[2]!.id, result: { targetInfos: [] } });
+
+		expect(await fromA).toEqual({ result: { value: 'a!' } });
+		expect(await fromB).toEqual({ result: { value: 'b!' } });
+		expect(await fromRoot).toEqual({ targetInfos: [] });
+	});
+
+	test('events dispatch by sessionId and method, never across sessions', () => {
+		const { socket, receive } = createFakeSocket();
+		const connection = createCdpConnection(socket);
+		const sessionA = connection.session('session-a');
+		const sessionB = connection.session('session-b');
+
+		const seenByA: unknown[] = [];
+		const seenByB: unknown[] = [];
+		const seenByRoot: unknown[] = [];
+		sessionA.on('Page.loadEventFired', (params) => seenByA.push(params));
+		sessionB.on('Page.loadEventFired', (params) => seenByB.push(params));
+		connection.on('Target.targetCreated', (params) => seenByRoot.push(params));
+
+		receive({
+			method: 'Page.loadEventFired',
+			sessionId: 'session-a',
+			params: { timestamp: 1 },
+		});
+		receive({
+			method: 'Page.loadEventFired',
+			sessionId: 'session-b',
+			params: { timestamp: 2 },
+		});
+		receive({ method: 'Target.targetCreated', params: { targetInfo: { type: 'page' } } });
+		// A session-tagged event must not leak to root listeners of the method.
+		receive({
+			method: 'Target.targetCreated',
+			sessionId: 'session-a',
+			params: { stray: true },
+		});
+
+		expect(seenByA).toEqual([{ timestamp: 1 }]);
+		expect(seenByB).toEqual([{ timestamp: 2 }]);
+		expect(seenByRoot).toEqual([{ targetInfo: { type: 'page' } }]);
+	});
+
+	test('socket close rejects pending calls in every session and the root', async () => {
+		const { socket } = createFakeSocket();
+		const connection = createCdpConnection(socket);
+		const sessionA = connection.session('session-a');
+		const sessionB = connection.session('session-b');
+
+		const fromA = sessionA.send('Page.enable');
+		const fromB = sessionB.send('Page.enable');
+		const fromRoot = connection.send('Browser.getVersion');
+		socket.close();
+
+		await expect(fromA).rejects.toThrow(/closed/);
+		await expect(fromB).rejects.toThrow(/closed/);
+		await expect(fromRoot).rejects.toThrow(/closed/);
+	});
+
+	test('closing a session rejects only its calls and never the shared socket', async () => {
+		const { socket, sent, receive, isClosed } = createFakeSocket();
+		const connection = createCdpConnection(socket);
+		const sessionA = connection.session('session-a');
+		const sessionB = connection.session('session-b');
+		const eventsAfterClose: unknown[] = [];
+		sessionA.on('Page.loadEventFired', (params) => eventsAfterClose.push(params));
+
+		const fromA = sessionA.send('Page.enable');
+		const fromB = sessionB.send('Page.enable');
+		sessionA.close();
+
+		await expect(fromA).rejects.toThrow(/closed/);
+		// The shared socket carries every other session: it must stay open.
+		expect(isClosed()).toBe(false);
+
+		// The sibling session and the root connection stay fully usable.
+		receive({ id: sent[1]!.id, sessionId: 'session-b', result: { ok: true } });
+		await expect(fromB).resolves.toEqual({ ok: true });
+		const fromRoot = connection.send('Target.getTargets');
+		receive({ id: sent[2]!.id, result: { targetInfos: [] } });
+		await expect(fromRoot).resolves.toEqual({ targetInfos: [] });
+
+		// The closed session refuses new sends and drops its event listeners.
+		await expect(sessionA.send('Page.enable')).rejects.toThrow(/closed/);
+		receive({
+			method: 'Page.loadEventFired',
+			sessionId: 'session-a',
+			params: { timestamp: 3 },
+		});
+		expect(eventsAfterClose).toEqual([]);
 	});
 });
 
@@ -563,6 +682,7 @@ function createAutoRespondingSocket(respond: (message: SentMessage) => Record<st
 	const sent: SentMessage[] = [];
 	const messageListeners: Array<(data: string) => void> = [];
 	const closeListeners: Array<() => void> = [];
+	let closed = false;
 	const socket: CdpSocket = {
 		send: (data) => {
 			const message = JSON.parse(data) as SentMessage;
@@ -574,7 +694,9 @@ function createAutoRespondingSocket(respond: (message: SentMessage) => Record<st
 				}
 			});
 		},
-		close: () => undefined,
+		close: () => {
+			closed = true;
+		},
 		onMessage: (listener) => {
 			messageListeners.push(listener);
 		},
@@ -587,7 +709,7 @@ function createAutoRespondingSocket(respond: (message: SentMessage) => Record<st
 			listener();
 		}
 	};
-	return { socket, sent, loseConnection };
+	return { socket, sent, loseConnection, isClosed: () => closed };
 }
 
 function createFakeEndpoint(name = 'fake') {
@@ -603,10 +725,17 @@ function createFakeEndpoint(name = 'fake') {
 	return { endpoint, shutdownCount: () => shutdownCalls };
 }
 
-/** Browser-level + page-level fake sockets wired into connectCdpBrowser. */
+/**
+ * One browser-level fake socket wired into connectCdpBrowser. Pages ride it
+ * as flattened sessions (Target.attachToTarget flatten: true), so the
+ * responder mints sessionIds and every frame — page traffic included —
+ * arrives on this single socket.
+ */
 function createBrowserConnectionHarness() {
 	let contextCounter = 0;
 	let targetCounter = 0;
+	let sessionCounter = 0;
+	let openedSockets = 0;
 	const browserSocket = createAutoRespondingSocket((message) => {
 		if (message.method === 'Target.createBrowserContext') {
 			contextCounter++;
@@ -616,21 +745,17 @@ function createBrowserConnectionHarness() {
 			targetCounter++;
 			return { targetId: `target-${targetCounter}` };
 		}
+		if (message.method === 'Target.attachToTarget') {
+			sessionCounter++;
+			return { sessionId: `session-${sessionCounter}` };
+		}
 		return {};
 	});
-	const openSocket = (url: string): Promise<CdpSocket> => {
-		if (url.includes('/devtools/page/')) {
-			const pageSocket = createAutoRespondingSocket((message) => {
-				if (message.method === 'Page.getFrameTree') {
-					return { frameTree: { frame: { id: 'frame-1' } } };
-				}
-				return {};
-			});
-			return Promise.resolve(pageSocket.socket);
-		}
+	const openSocket = (): Promise<CdpSocket> => {
+		openedSockets++;
 		return Promise.resolve(browserSocket.socket);
 	};
-	return { browserSocket, openSocket };
+	return { browserSocket, openSocket, openedSocketCount: () => openedSockets };
 }
 
 describe('cdp browser connection (context = session)', () => {
@@ -688,6 +813,53 @@ describe('cdp browser connection (context = session)', () => {
 
 		browserSocket.loseConnection();
 		expect(connectionLost).toBe(true);
+	});
+
+	test('newPage attaches as a flattened session on the one shared socket', async () => {
+		const { browserSocket, openSocket, openedSocketCount } = createBrowserConnectionHarness();
+		const { endpoint } = createFakeEndpoint();
+		const connection = await connectCdpBrowser(endpoint, { openSocket });
+
+		const session = await connection.createContextSession();
+		await session.newPage();
+		await session.newPage();
+
+		const attachments = browserSocket.sent.filter(
+			(message) => message.method === 'Target.attachToTarget',
+		);
+		expect(attachments).toHaveLength(2);
+		expect(attachments[0]!.params).toEqual({ targetId: 'target-1', flatten: true });
+		expect(attachments[1]!.params).toEqual({ targetId: 'target-2', flatten: true });
+
+		// Page domain enables ride the shared socket tagged by their session.
+		const pageEnables = browserSocket.sent.filter(
+			(message) => message.method === 'Page.enable',
+		);
+		expect(pageEnables.map((message) => message.sessionId)).toEqual(['session-1', 'session-2']);
+
+		// Exactly one WebSocket per browser process, never one per page.
+		expect(openedSocketCount()).toBe(1);
+	});
+
+	test('page close sends Target.closeTarget and never closes the shared socket', async () => {
+		const { browserSocket, openSocket } = createBrowserConnectionHarness();
+		const { endpoint, shutdownCount } = createFakeEndpoint();
+		const connection = await connectCdpBrowser(endpoint, { openSocket });
+
+		const session = await connection.createContextSession();
+		const page = await session.newPage();
+		await page.close();
+
+		const targetCloses = browserSocket.sent.filter(
+			(message) => message.method === 'Target.closeTarget',
+		);
+		expect(targetCloses).toHaveLength(1);
+		expect(targetCloses[0]!.params).toEqual({ targetId: 'target-1' });
+
+		// Closing a page detaches its session locally; the shared socket and
+		// the pooled browser process stay alive for every other session.
+		expect(browserSocket.isClosed()).toBe(false);
+		expect(shutdownCount()).toBe(0);
 	});
 });
 

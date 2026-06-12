@@ -284,6 +284,7 @@ function decodeBase64(data: string): Uint8Array {
 }
 
 type CdpPageWiring = {
+	/** The page's flattened session handle on the shared browser socket. */
 	pageConnection: CdpConnection;
 	/** Target.closeTarget only answers on the browser-level connection. */
 	browserConnection: CdpConnection;
@@ -294,12 +295,15 @@ type CdpPageWiring = {
 async function createCdpPage(wiring: CdpPageWiring): Promise<GumboxBrowserPage> {
 	const { pageConnection, browserConnection, targetId, writeBinaryFile } = wiring;
 
-	await pageConnection.send('Page.enable');
-	await pageConnection.send('Runtime.enable');
-	await pageConnection.send('Network.enable');
-	const frameTree = await pageConnection.send('Page.getFrameTree');
-	const mainFrameId =
-		(frameTree.frameTree as { frame?: { id?: string } } | undefined)?.frame?.id ?? null;
+	// The three domain enables are independent commands; issue them together.
+	await Promise.all([
+		pageConnection.send('Page.enable'),
+		pageConnection.send('Runtime.enable'),
+		pageConnection.send('Network.enable'),
+	]);
+	// CDP defines a page target's main frame id as the target id itself, so
+	// the Page.getFrameTree round-trip is unnecessary.
+	const mainFrameId = targetId;
 
 	// One CDP listener per event, fanned out to adapter listeners. Evidence
 	// listeners register before goto(), and onNavigated registers after the
@@ -418,7 +422,12 @@ async function createCdpPage(wiring: CdpPageWiring): Promise<GumboxBrowserPage> 
 			return composePageContent(parts as { doctype: string | null; html: string });
 		},
 		screenshot: async (filePath) => {
-			const capture = await pageConnection.send('Page.captureScreenshot', { format: 'png' });
+			// optimizeForSpeed picks the fast PNG codec; its partial-alpha quirk
+			// is irrelevant for opaque pages, and the artifact stays a .png.
+			const capture = await pageConnection.send('Page.captureScreenshot', {
+				format: 'png',
+				optimizeForSpeed: true,
+			});
 			await writeBinaryFile(filePath, decodeBase64(capture.data as string));
 		},
 		evaluate: (expression) => evaluateExpression(expression),
@@ -499,7 +508,7 @@ async function createCdpPage(wiring: CdpPageWiring): Promise<GumboxBrowserPage> 
 			// real navigations to a box even though no document loads.
 			pageConnection.on('Page.navigatedWithinDocument', (params) => {
 				const frameId = params.frameId as string | undefined;
-				if (mainFrameId === null || frameId === mainFrameId) {
+				if (frameId === mainFrameId) {
 					listener((params.url as string | undefined) ?? '');
 				}
 			});
@@ -508,6 +517,8 @@ async function createCdpPage(wiring: CdpPageWiring): Promise<GumboxBrowserPage> 
 			try {
 				await browserConnection.send('Target.closeTarget', { targetId });
 			} finally {
+				// Detaches the page's session locally. This must never close the
+				// shared browser socket — every other page rides it too.
 				pageConnection.close();
 			}
 		},
@@ -548,8 +559,6 @@ export async function connectCdpBrowser(
 		browserSocket.onClose(options.onConnectionLost);
 	}
 	const browserConnection = createCdpConnection(browserSocket);
-	// Page targets attach on sibling WebSocket paths of the browser endpoint.
-	const endpointHost = new URL(endpoint.webSocketDebuggerUrl).host;
 
 	const createContextSession = async (): Promise<GumboxBrowserSession> => {
 		const created = await browserConnection.send('Target.createBrowserContext');
@@ -561,9 +570,13 @@ export async function connectCdpBrowser(
 					browserContextId,
 				});
 				const targetId = target.targetId as string;
-				const pageConnection = createCdpConnection(
-					await openSocket(`ws://${endpointHost}/devtools/page/${targetId}`),
-				);
+				// flatten: true multiplexes the page over this one browser
+				// socket as sessionId-tagged frames — no per-page WebSocket.
+				const attached = await browserConnection.send('Target.attachToTarget', {
+					targetId,
+					flatten: true,
+				});
+				const pageConnection = browserConnection.session(attached.sessionId as string);
 				return createCdpPage({
 					pageConnection,
 					browserConnection,

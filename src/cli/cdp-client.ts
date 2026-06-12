@@ -3,6 +3,11 @@
  * transport. Uses only the web-standard global `WebSocket`, so it runs on
  * every runtime Vite runs on. The transport is an injectable `CdpSocket` so
  * the id correlation and event dispatch are unit-testable with a fake socket.
+ *
+ * One socket carries every flattened CDP session (Target.attachToTarget
+ * flatten: true): outgoing frames optionally carry a `sessionId`, incoming
+ * frames route back by their globally unique `id` and dispatch events by
+ * (sessionId, method).
  */
 
 /** WebSocket-shaped transport carrying JSON text frames. */
@@ -23,8 +28,21 @@ export type CdpConnection = {
 	close(): void;
 };
 
+/** The browser-level connection that owns the socket and mints sessions. */
+export type CdpRootConnection = CdpConnection & {
+	/**
+	 * A handle scoped to one flattened session: its sends carry the sessionId
+	 * and only events tagged with that sessionId reach its listeners. The
+	 * handle satisfies `CdpConnection`, but its close() detaches the session
+	 * locally only — it must never close the shared socket, which carries
+	 * every other session and the browser-level traffic.
+	 */
+	session(sessionId: string): CdpConnection;
+};
+
 type IncomingFrame = {
 	id?: number;
+	sessionId?: string;
 	result?: Record<string, unknown>;
 	error?: { code?: number; message?: string };
 	method?: string;
@@ -33,6 +51,7 @@ type IncomingFrame = {
 
 type PendingCall = {
 	method: string;
+	sessionId?: string;
 	resolve(result: Record<string, unknown>): void;
 	reject(error: Error): void;
 };
@@ -69,19 +88,70 @@ export function openCdpSocket(url: string): Promise<CdpSocket> {
 	});
 }
 
-export function createCdpConnection(socket: CdpSocket): CdpConnection {
+/** Listener map key: sessionIds are hex and methods are dotted identifiers, so a space never collides. */
+function eventListenerKey(sessionId: string | undefined, method: string): string {
+	return `${sessionId ?? ''} ${method}`;
+}
+
+export function createCdpConnection(socket: CdpSocket): CdpRootConnection {
+	// One global monotonic id across the root and every session: ids stay
+	// globally unique, so responses route by id alone.
 	let nextId = 1;
 	let isClosed = false;
 	const pendingCalls = new Map<number, PendingCall>();
 	const eventListeners = new Map<string, Array<(params: CdpEventParams) => void>>();
+	const closedSessionIds = new Set<string>();
 
-	const rejectAllPending = (reason: string): void => {
-		for (const pending of pendingCalls.values()) {
-			pending.reject(
-				new Error(`CDP connection ${reason} before '${pending.method}' answered.`),
-			);
+	const failPendingCalls = (
+		matches: (pending: PendingCall) => boolean,
+		description: string,
+	): void => {
+		for (const [id, pending] of pendingCalls) {
+			if (!matches(pending)) {
+				continue;
+			}
+			pendingCalls.delete(id);
+			pending.reject(new Error(`${description} before '${pending.method}' answered.`));
 		}
-		pendingCalls.clear();
+	};
+
+	const sendCall = (
+		sessionId: string | undefined,
+		method: string,
+		params?: Record<string, unknown>,
+	): Promise<Record<string, unknown>> => {
+		if (isClosed) {
+			return Promise.reject(new Error(`CDP connection closed; cannot send '${method}'.`));
+		}
+		if (sessionId !== undefined && closedSessionIds.has(sessionId)) {
+			return Promise.reject(new Error(`CDP session closed; cannot send '${method}'.`));
+		}
+		const id = nextId++;
+		return new Promise((resolve, reject) => {
+			pendingCalls.set(id, { method, sessionId, resolve, reject });
+			const frame: Record<string, unknown> = { id, method };
+			if (params !== undefined) {
+				frame.params = params;
+			}
+			if (sessionId !== undefined) {
+				frame.sessionId = sessionId;
+			}
+			socket.send(JSON.stringify(frame));
+		});
+	};
+
+	const addEventListener = (
+		sessionId: string | undefined,
+		method: string,
+		listener: (params: CdpEventParams) => void,
+	): void => {
+		const key = eventListenerKey(sessionId, method);
+		const listeners = eventListeners.get(key);
+		if (listeners === undefined) {
+			eventListeners.set(key, [listener]);
+			return;
+		}
+		listeners.push(listener);
 	};
 
 	socket.onMessage((data) => {
@@ -92,6 +162,8 @@ export function createCdpConnection(socket: CdpSocket): CdpConnection {
 			return;
 		}
 		if (frame.id !== undefined) {
+			// Ids are globally unique across sessions, so the frame's sessionId
+			// is redundant for response correlation.
 			const pending = pendingCalls.get(frame.id);
 			if (pending === undefined) {
 				return;
@@ -109,7 +181,8 @@ export function createCdpConnection(socket: CdpSocket): CdpConnection {
 			return;
 		}
 		if (frame.method !== undefined) {
-			for (const listener of eventListeners.get(frame.method) ?? []) {
+			const key = eventListenerKey(frame.sessionId, frame.method);
+			for (const listener of eventListeners.get(key) ?? []) {
 				listener(frame.params ?? {});
 			}
 		}
@@ -117,36 +190,41 @@ export function createCdpConnection(socket: CdpSocket): CdpConnection {
 
 	socket.onClose(() => {
 		isClosed = true;
-		rejectAllPending('closed');
+		// The socket carried every session, so the process (or transport) dying
+		// fails all of them at once — pool eviction then covers the rest.
+		failPendingCalls(() => true, 'CDP connection closed');
+	});
+
+	const createSessionHandle = (sessionId: string): CdpConnection => ({
+		send: (method, params) => sendCall(sessionId, method, params),
+		on: (method, listener) => addEventListener(sessionId, method, listener),
+		close: () => {
+			// Local detach only: reject this session's in-flight calls and drop
+			// its listeners. Never close the shared socket here — it carries
+			// every other session.
+			if (closedSessionIds.has(sessionId)) {
+				return;
+			}
+			closedSessionIds.add(sessionId);
+			failPendingCalls((pending) => pending.sessionId === sessionId, 'CDP session closed');
+			for (const key of eventListeners.keys()) {
+				if (key.startsWith(`${sessionId} `)) {
+					eventListeners.delete(key);
+				}
+			}
+		},
 	});
 
 	return {
-		send: (method, params) => {
-			if (isClosed) {
-				return Promise.reject(new Error(`CDP connection closed; cannot send '${method}'.`));
-			}
-			const id = nextId++;
-			return new Promise((resolve, reject) => {
-				pendingCalls.set(id, { method, resolve, reject });
-				socket.send(
-					JSON.stringify(params === undefined ? { id, method } : { id, method, params }),
-				);
-			});
-		},
-		on: (method, listener) => {
-			const listeners = eventListeners.get(method);
-			if (listeners === undefined) {
-				eventListeners.set(method, [listener]);
-				return;
-			}
-			listeners.push(listener);
-		},
+		send: (method, params) => sendCall(undefined, method, params),
+		on: (method, listener) => addEventListener(undefined, method, listener),
+		session: createSessionHandle,
 		close: () => {
 			if (isClosed) {
 				return;
 			}
 			isClosed = true;
-			rejectAllPending('closed');
+			failPendingCalls(() => true, 'CDP connection closed');
 			socket.close();
 		},
 	};
