@@ -1,7 +1,7 @@
 /**
  * Pure file-URL <-> path helpers built on web-standard URL parsing only, so
  * library code never reaches for `node:url` (or wrappers like mlly that lean
- * on it). Covers the shapes gumbox meets: posix paths, Windows drive-letter
+ * on it). Covers the shapes witness meets: posix paths, Windows drive-letter
  * paths, and UNC hosts. Output paths use forward slashes, matching pathe.
  */
 

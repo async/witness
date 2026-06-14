@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('intentionally failing box', async ({ project }) => {
 	await project.edit('src/message.ts', {

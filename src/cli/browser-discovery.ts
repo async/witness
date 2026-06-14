@@ -1,6 +1,6 @@
 /**
  * Chromium-family browser discovery: a per-OS known-paths table, an explicit
- * `GUMBOX_BROWSER_PATH` override, and the playwright-managed browser cache as
+ * `WITNESS_BROWSER_PATH` override, and the playwright-managed browser cache as
  * a last-resort courtesy for projects migrating from the playwright-core era.
  * Pure logic — the caller injects environment reads, the executable-existence
  * probe, and the directory listing, so the tables and the fail-closed
@@ -14,7 +14,7 @@ export type ReadEnv = (name: string) => string | undefined;
 /** Lists entry names of a directory; rejects when it does not exist. */
 export type ListDirectoryNames = (dirPath: string) => Promise<string[]>;
 
-export const BROWSER_EXECUTABLE_OVERRIDE_ENV = 'GUMBOX_BROWSER_PATH';
+export const BROWSER_EXECUTABLE_OVERRIDE_ENV = 'WITNESS_BROWSER_PATH';
 
 const MACOS_APP_BINARIES = [
 	'Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -154,7 +154,7 @@ export async function playwrightCacheExecutables(
 
 /**
  * Resolves the browser executable to launch. An explicit
- * `GUMBOX_BROWSER_PATH` must exist or the discovery fails closed — a typo'd
+ * `WITNESS_BROWSER_PATH` must exist or the discovery fails closed — a typo'd
  * override silently falling through to a different browser would make runs
  * unexplainable. Without an override, the first known system candidate that
  * exists wins, then playwright's managed cache is probed as a migration
@@ -190,7 +190,7 @@ export async function discoverBrowserExecutable(options: {
 		}
 	}
 	throw new Error(
-		`gumbox could not find a Chromium-family browser to launch. ` +
+		`witness could not find a Chromium-family browser to launch. ` +
 			`Install Google Chrome, Microsoft Edge, or Chromium, or set ` +
 			`${BROWSER_EXECUTABLE_OVERRIDE_ENV} to a Chromium-family executable. ` +
 			`Paths checked: ${candidates.join(', ')}`,

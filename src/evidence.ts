@@ -64,7 +64,7 @@ export function editTouchesFile(edit: EditReceipt, absolutePath: string): boolea
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-export class GumboxTimeoutError extends Error {}
+export class WitnessTimeoutError extends Error {}
 
 /**
  * Ordered store of Vite evidence with event-driven waiting. There are no
@@ -94,7 +94,7 @@ export class EvidenceStore {
 
 	/**
 	 * Re-evaluates `check` now and on every new evidence event until it
-	 * returns a value, or rejects with a GumboxTimeoutError at the deadline.
+	 * returns a value, or rejects with a WitnessTimeoutError at the deadline.
 	 */
 	async waitUntil<T>(
 		description: string,
@@ -128,7 +128,7 @@ export class EvidenceStore {
 			const onAbort = (): void => {
 				cleanup();
 				reject(
-					new GumboxTimeoutError(
+					new WitnessTimeoutError(
 						`timed out after ${timeoutMs}ms waiting for ${description} (${this.events.length} Vite evidence events observed so far)`,
 					),
 				);
@@ -216,7 +216,7 @@ export function createEvidencePlugin(store: EvidenceStore, fallbackRoot: string)
 	};
 
 	return {
-		name: 'gumbox:evidence',
+		name: 'async-witness:evidence',
 		configResolved(config) {
 			resolvedRoot = config.root;
 		},

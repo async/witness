@@ -1,1 +1,1 @@
-export const notABox = 'gumbox should flag this file with an actionable error';
+export const notABox = 'witness should flag this file with an actionable error';

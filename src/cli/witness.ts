@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * gumbox bin entry. Thin host shim: adapt argv/cwd/exit/filesystem through
+ * witness bin entry. Thin host shim: adapt argv/cwd/exit/filesystem through
  * the host boundary, then hand everything to the runtime-agnostic CLI core.
  */
 import { restorePendingEdits } from '../runner.ts';

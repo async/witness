@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box(
 	'message updates without reload',

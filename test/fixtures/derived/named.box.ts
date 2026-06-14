@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // An explicit name always wins over derivation, and the options form works
 // without a name when only metadata is needed.

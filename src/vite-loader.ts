@@ -8,8 +8,8 @@ const loadedByRoot = new Map<string, Promise<ViteModule>>();
 /**
  * Loads the project's own vite package, resolved from the project root.
  *
- * Gumbox is often linked into a project (`link:../gumbox`) that carries its
- * own vite copy in node_modules. Gumbox must drive the pipeline with THAT
+ * Witness is often linked into a project (`link:../witness`) that carries its
+ * own vite copy in node_modules. Witness must drive the pipeline with THAT
  * copy: the project's plugins are loaded against their vite instance, and
  * orchestrating them with a second instance silently diverges — plugin state
  * shared across environment builds (for example a client manifest consumed by
@@ -36,11 +36,11 @@ export function hostNodeEnv(): string | undefined {
 }
 
 /**
- * Runs a gumbox-internal Vite operation without leaking its NODE_ENV side
+ * Runs a witness-internal Vite operation without leaking its NODE_ENV side
  * effect into the host process. Vite's dev-flavored entry points (for example
- * the module runner gumbox uses for box discovery) set NODE_ENV when it is
+ * the module runner witness uses for box discovery) set NODE_ENV when it is
  * unset; the user's own pipeline commands must still see exactly the
- * environment the operator launched gumbox with — gumbox never imposes an
+ * environment the operator launched witness with — witness never imposes an
  * env, it only cleans up after itself.
  */
 export async function withoutNodeEnvLeak<T>(run: () => Promise<T>): Promise<T> {
@@ -68,10 +68,10 @@ async function resolveAndImportVite(root: string): Promise<ViteModule> {
 		}
 	} catch {
 		// Resolution found a vite package the runtime could not import;
-		// fall through to gumbox's own copy below.
+		// fall through to witness's own copy below.
 	}
-	// No project-local vite (for example gumbox's own copied test
-	// fixtures); gumbox's bundled vite dependency is the fallback.
+	// No project-local vite (for example witness's own copied test
+	// fixtures); witness's bundled vite dependency is the fallback.
 	return (await import('vite')) as ViteModule;
 }
 
@@ -91,7 +91,7 @@ export async function resolveProjectViteEntryUrl(root: string): Promise<string |
 	let directory = path.resolve(root);
 	// The walk stops BEFORE the filesystem root: a probe there would be
 	// `/node_modules/vite/package.json`, which Vite-managed import graphs
-	// (gumbox often runs inside one) resolve root-relative and false-positive
+	// (witness often runs inside one) resolve root-relative and false-positive
 	// on the host project's own vite.
 	while (path.dirname(directory) !== directory) {
 		const packageDir = path.join(directory, 'node_modules', 'vite');
@@ -110,7 +110,7 @@ export async function resolveProjectViteEntryUrl(root: string): Promise<string |
 /**
  * Reads a package.json through the runtime's own module loader (standard
  * JSON import attributes work on Node, Deno, and Bun) instead of filesystem
- * APIs, so this module needs no injected GumboxFileSystem.
+ * APIs, so this module needs no injected WitnessFileSystem.
  */
 async function importPackageManifest(manifestPath: string): Promise<PackageManifest | undefined> {
 	try {

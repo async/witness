@@ -1,13 +1,9 @@
-<p align="center">
-  <img src="./assets/gumbox.png" alt="Gumbox — prove changes faster, catch regressions early" width="820" />
-</p>
-
-# Gumbox
+# Async Witness
 
 **See what your Vite pipeline actually did — with receipts.**
 
 Restart, hard-refresh, `console.log`, pray 🙏 — Vite knew what happened the whole time, it
-just never told you. Gumbox runs your real pipeline and writes a **receipt** for every run:
+just never told you. Async Witness runs your real pipeline and writes a **receipt** for every run:
 proof you, CI, or an AI agent can act on.
 
 > ⚠️ **Pre-release** — not on npm yet; the [specs](./specs/README.md) are the product truth.
@@ -19,7 +15,7 @@ A **box** is a small file that runs inside your real Vite pipeline and asserts w
 pipeline did, in the pipeline's own vocabulary:
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('message updates without reload', async ({ browser, project, expect }) => {
 	// Visit a real route — this auto-starts your real Vite dev server.
@@ -41,10 +37,10 @@ export default box('message updates without reload', async ({ browser, project, 
 ```
 
 ```sh
-gumbox hmr
+witness hmr
 ```
 
-Gumbox runs the box, restores the edited file, and writes a receipt to `.gumbox/receipts/` —
+Async Witness runs the box, restores the edited file, and writes a receipt to `.witness/receipts/` —
 pass or fail, human- and machine-readable. If the box fails, the receipt explains _why_ in
 Vite's own terms: what payload Vite sent, whether the server restarted, what the console said.
 
@@ -68,7 +64,7 @@ Vite's own terms: what payload Vite sent, whether the server restarted, what the
 Assertions only answer the questions you thought to ask. The interesting failures live in what
 you didn't ask about — the console error that didn't break your selector, the request that
 died while the page still rendered, the full reload that happened to land on the right text
-anyway. Gumbox treats a box run like a case: the receipt is the case file, and everyone who
+anyway. Async Witness treats a box run like a case: the receipt is the case file, and everyone who
 observed the run testifies in it.
 
 Three witnesses watch every browser box from different vantage points. The **pipeline**
@@ -95,7 +91,7 @@ assertion asked about, preserved instead of swallowed. That's the gap between "t
 Cross-examine any box straight from a stored receipt:
 
 ```sh
-gumbox evidence 'noisy page'
+witness evidence 'noisy page'
 ```
 
 ```
@@ -110,22 +106,22 @@ CI and agents to consume. Color is just how your terminal paints them.
 ## Why not Vitest / Playwright / Storybook?
 
 They're great at what they own — but they see the **page**, not the **pipeline** that produced
-it. That gap is how "all tests pass" and "the app is broken" happen at the same time. Gumbox
+it. That gap is how "all tests pass" and "the app is broken" happen at the same time. Async Witness
 owns the pipeline: the chain from an edit to a Vite environment event to what you see, with a
 receipt preserving the whole story.
 
-There's no automation framework underneath, either. Gumbox drives the browser itself over the
+There's no automation framework underneath, either. Async Witness drives the browser itself over the
 Chrome DevTools Protocol — a couple thousand lines of WebSocket and JSON it owns outright,
 zero dependencies. One pooled browser serves the whole run and every box gets its own isolated
-browser context, the same architecture playwright uses internally, which is how gumbox ended
+browser context, the same architecture playwright uses internally, which is how witness ended
 up faster per test than playwright-core on every platform CI measures.
 
 ## Bring your own browser
 
-Gumbox drives a Chromium-family browser already on your machine over the Chrome DevTools
+Async Witness drives a Chromium-family browser already on your machine over the Chrome DevTools
 Protocol — no playwright dependency, no download at install time. Discovery order:
 
-1. `GUMBOX_BROWSER_PATH` — explicit override. If it's set but doesn't point at an executable,
+1. `WITNESS_BROWSER_PATH` — explicit override. If it's set but doesn't point at an executable,
    discovery fails with an error instead of silently falling through to another browser.
 2. System installs of Chrome, Edge, or Chromium, in the usual per-OS locations.
 3. Playwright's browser cache as a courtesy fallback (`~/Library/Caches/ms-playwright` on
@@ -133,19 +129,17 @@ Protocol — no playwright dependency, no download at install time. Discovery or
    `%LOCALAPPDATA%\ms-playwright` on Windows) — full `chromium-<revision>` downloads only,
    newest first, the headless shell is skipped.
 
-macOS, Linux, and Windows are all exercised in CI. When nothing is found, gumbox fails with
+macOS, Linux, and Windows are all exercised in CI. When nothing is found, witness fails with
 the exact paths it checked.
 
 ## Docs
 
 - **[Specs](./specs/README.md)** — product direction and the source of truth
 
-The website is being worked on at [gum.tools](https://gum.tools).
-
 ## Status
 
 Built in slices. Box authoring, dev/build/preview runs, browser evidence, witness verdicts
-with the `gumbox evidence` drill-down, the CLI, and JSON receipts work today. The
+with the `witness evidence` drill-down, the CLI, and JSON receipts work today. The
 state-gallery UI, generated types, and receipt replay are coming.
 
 ## Contributing

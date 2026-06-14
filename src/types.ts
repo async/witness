@@ -1,6 +1,6 @@
 import type { InlineConfig, ViteDevServer } from 'vite';
-import type { GumboxBrowser, PageHandle } from './browser.ts';
-import type { GumboxFileSystem } from './filesystem.ts';
+import type { WitnessBrowser, PageHandle } from './browser.ts';
+import type { WitnessFileSystem } from './filesystem.ts';
 import type { BoxWitnesses, WitnessId } from './witness.ts';
 
 /**
@@ -572,14 +572,14 @@ export type RunBoxesOptions = {
 	boxes?: DiscoveredBox[];
 	/** Invalid box files to record in the receipt when `boxes` is pre-selected. */
 	invalid?: InvalidBoxFile[];
-	/** Receipt directory, absolute or relative to root. Default `.gumbox/receipts`. */
+	/** Receipt directory, absolute or relative to root. Default `.witness/receipts`. */
 	receiptDir?: string;
 	/** Default bounded wait used by `expect.*` assertions. */
 	assertionTimeoutMs?: number;
 	/** Host filesystem capability used for project edits and receipt writes. */
-	fileSystem: GumboxFileSystem;
+	fileSystem: WitnessFileSystem;
 	/** Host browser automation capability used by visit() and page evidence. */
-	browser?: GumboxBrowser;
+	browser?: WitnessBrowser;
 	/** Run browser sessions headlessly (default true). */
 	headless?: boolean;
 	/** Called with each box result as that box finishes, before the run summary. */

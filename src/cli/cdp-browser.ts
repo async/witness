@@ -1,18 +1,18 @@
 /**
- * Adapts raw CDP connections into the `GumboxBrowserSession` /
- * `GumboxBrowserPage` capability surface. Everything here speaks plain CDP
+ * Adapts raw CDP connections into the `WitnessBrowserSession` /
+ * `WitnessBrowserPage` capability surface. Everything here speaks plain CDP
  * JSON over the injected connection — process launch and filesystem writes
  * stay behind the `LaunchedBrowserEndpoint` the host boundary
  * (`browser-launch.ts`) provides, so this module is runtime-agnostic.
  */
-import type { GumboxBrowserPage, GumboxBrowserSession } from '../browser.ts';
+import type { WitnessBrowserPage, WitnessBrowserSession } from '../browser.ts';
 import { createCdpConnection, openCdpSocket } from './cdp-client.ts';
 import type { CdpConnection, CdpSocket } from './cdp-client.ts';
 
 /** A launched browser process, reachable over its DevTools endpoint. */
 export type LaunchedBrowserEndpoint = {
 	webSocketDebuggerUrl: string;
-	/** Host write for screenshot bytes (the one binary write gumbox does). */
+	/** Host write for screenshot bytes (the one binary write witness does). */
 	writeBinaryFile(filePath: string, bytes: Uint8Array): Promise<void>;
 	/** Kills the browser process (best effort) and removes its temp profile. */
 	shutdown(): Promise<void>;
@@ -29,7 +29,7 @@ const HOST_BACKSTOP_SLACK_MS = 500;
 /** Pause before re-evaluating after a navigation destroys the wait's context. */
 const CONTEXT_RETRY_PAUSE_MS = 20;
 
-/** CDP Runtime.RemoteObject, reduced to the fields gumbox reads. */
+/** CDP Runtime.RemoteObject, reduced to the fields witness reads. */
 export type CdpRemoteObject = {
 	type?: string;
 	subtype?: string;
@@ -52,7 +52,7 @@ function delay(ms: number): Promise<void> {
  * sentinel (instead of rejecting) keeps the timeout path distinguishable from
  * a real page-side failure such as a destroyed execution context.
  */
-export const WAIT_TIMED_OUT_SENTINEL = '__gumbox_wait_timed_out__';
+export const WAIT_TIMED_OUT_SENTINEL = '__witness_wait_timed_out__';
 
 /**
  * Wraps a caller predicate in an in-page wait: one expression whose promise
@@ -103,7 +103,7 @@ export function buildInPageWaitExpression(predicateExpression: string, timeoutMs
 }
 
 /** Resolved instead of the page's answer when the host backstop fires first. */
-const HOST_BACKSTOP_TIMED_OUT = Symbol('gumbox host backstop timed out');
+const HOST_BACKSTOP_TIMED_OUT = Symbol('witness host backstop timed out');
 
 async function raceHostBackstop(
 	pageAnswer: Promise<unknown>,
@@ -123,7 +123,7 @@ async function raceHostBackstop(
 }
 
 /** Signals that the wait's execution context died before the page answered. */
-const EXECUTION_CONTEXT_GONE = Symbol('gumbox execution context gone');
+const EXECUTION_CONTEXT_GONE = Symbol('witness execution context gone');
 
 export type InPageWaitOptions = {
 	/** Page-side predicate; its first truthy value resolves the wait. */
@@ -292,7 +292,7 @@ type CdpPageWiring = {
 	writeBinaryFile(filePath: string, bytes: Uint8Array): Promise<void>;
 };
 
-async function createCdpPage(wiring: CdpPageWiring): Promise<GumboxBrowserPage> {
+async function createCdpPage(wiring: CdpPageWiring): Promise<WitnessBrowserPage> {
 	const { pageConnection, browserConnection, targetId, writeBinaryFile } = wiring;
 
 	// The three domain enables are independent commands; issue them together.
@@ -531,17 +531,17 @@ async function createCdpPage(wiring: CdpPageWiring): Promise<GumboxBrowserPage> 
 
 /**
  * A browser-level CDP connection that mints per-context sessions. One
- * connection serves many GumboxBrowserSessions over the lifetime of the
+ * connection serves many WitnessBrowserSessions over the lifetime of the
  * pooled browser process.
  */
 export type CdpBrowserConnection = {
 	/**
 	 * Creates one isolated browsing state (cookies/storage/cache) and adapts
-	 * it as a GumboxBrowserSession. The browser context IS the session:
+	 * it as a WitnessBrowserSession. The browser context IS the session:
 	 * closing the session disposes the context only — the browser process
 	 * belongs to the pool and outlives every session.
 	 */
-	createContextSession(): Promise<GumboxBrowserSession>;
+	createContextSession(): Promise<WitnessBrowserSession>;
 	/** Closes the browser-level socket; the process is owned by `endpoint.shutdown()`. */
 	close(): void;
 };
@@ -564,7 +564,7 @@ export async function connectCdpBrowser(
 	}
 	const browserConnection = createCdpConnection(browserSocket);
 
-	const createContextSession = async (): Promise<GumboxBrowserSession> => {
+	const createContextSession = async (): Promise<WitnessBrowserSession> => {
 		const created = await browserConnection.send('Target.createBrowserContext');
 		const browserContextId = created.browserContextId as string;
 		return {

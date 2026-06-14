@@ -4,7 +4,7 @@
 
 The authoring API must be Vite Environment API-first.
 
-Gumbox may use browsers, CDP automation, or framework adapters internally, but the
+Async Witness may use browsers, CDP automation, or framework adapters internally, but the
 public model should not be a thin browser test wrapper. The public model should
 read like:
 
@@ -26,7 +26,7 @@ Preferred files:
 Recommended export:
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('message updates without reload', async ({ browser, project, expect }) => {
 	const page = await browser.visit('/demo');
@@ -46,7 +46,7 @@ Named exports are allowed when one file naturally contains related pipeline
 states:
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export const Hmr = box('message hmr', async ({ browser, project, expect }) => {
 	const page = await browser.visit('/demo');
@@ -73,9 +73,9 @@ related Vite pipeline states or QA workflows.
 ## `box(...)`
 
 `box` is the project primitive. It defines a Vite pipeline recipe and the
-receipt Gumbox should produce.
+receipt Async Witness should produce.
 
-A visible UI state is also a `box`. Gumbox should not add a separate Storybook
+A visible UI state is also a `box`. Async Witness should not add a separate Storybook
 story primitive. The UI can treat boxes that visit browser-capable environments
 as state-gallery entries.
 
@@ -186,7 +186,7 @@ UI state boxes are the visual state-browsing surface.
 They should use the same API as pipeline boxes:
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('empty cart', async ({ browser, expect, receipt }) => {
 	const page = await browser.visit('/cart?state=empty');
@@ -226,7 +226,7 @@ UI state boxes should avoid:
 - Storybook CSF exports
 - args/controls as the primary state model
 - component rendering as the happy path
-- synthetic `/__gumbox/story/...` app routes as the state surface
+- synthetic `/__witness/story/...` app routes as the state surface
 - generic browser or network mocking as the core setup model
 
 The primary state surface remains:
@@ -254,7 +254,7 @@ environment.edge;
 environment.worker;
 ```
 
-The environment names come from Vite, not from Gumbox. Gumbox should derive them
+The environment names come from Vite, not from Async Witness. Async Witness should derive them
 from `resolvedConfig.environments`, `server.environments`, and
 `builder.environments`.
 
@@ -291,7 +291,7 @@ browser === environment.client;
 names, and the receipt records which environment the `browser` alias resolved
 to.)
 
-If the project names its browser-capable environment differently, Gumbox should
+If the project names its browser-capable environment differently, Async Witness should
 resolve `browser` to that environment and record the alias target in the
 receipt.
 
@@ -415,7 +415,7 @@ question clearer.
 `pipeline` controls dev/build/preview lifecycle when a box needs explicit
 control.
 
-Gumbox may auto-start or attach to a dev server for simple `browser.visit(...)`
+Async Witness may auto-start or attach to a dev server for simple `browser.visit(...)`
 boxes, but explicit pipeline operations should be available:
 
 ```ts
@@ -433,7 +433,7 @@ Implementation expectations:
 - build evidence comes from `builder.environments`
 - `pipeline.preview()` uses Vite `preview(...)`
 
-Calling `pipeline.build()` does not mean Gumbox manually builds anything. It
+Calling `pipeline.build()` does not mean Async Witness manually builds anything. It
 means "ask Vite to run the user's build pipeline and preserve the evidence."
 
 Optional config overlays should be possible without editing files:
@@ -445,7 +445,7 @@ await pipeline.dev({
 			...config,
 			define: {
 				...config.define,
-				__GUMBOX_VARIANT__: JSON.stringify('debug'),
+				__WITNESS_VARIANT__: JSON.stringify('debug'),
 			},
 		};
 	},
@@ -457,7 +457,7 @@ config-file edit or restart.
 
 ## Expect API
 
-Gumbox should expose one assertion object: `expect`.
+Async Witness should expose one assertion object: `expect`.
 
 Do not split proving across `should` options on edits, `assert.dom`,
 `assert.vite`, and ad hoc assertion helpers. Do not make callable
@@ -465,7 +465,7 @@ Do not split proving across `should` options on edits, `assert.dom`,
 
 The core design rule (user directive 2026-06-10): **an assertion is a partial
 receipt**. The author declares the outcome they expect as data, in the same
-vocabulary the receipt records, and Gumbox diffs expectation against evidence.
+vocabulary the receipt records, and Async Witness diffs expectation against evidence.
 Method-per-fact assertion grammars (`hotUpdate`, `noFullReload`, `invalidated`,
 `notInvalidated`, `customPayload`, `cleanConsole`, `noNavigations`) were
 rejected as unpredictable: authors cannot guess method names, negation hides in
@@ -510,7 +510,7 @@ await expect.edit(change, {
 await expect.page.text(page, '#message', 'after');
 ```
 
-Gumbox waits until every named environment settles its reaction, then diffs
+Async Witness waits until every named environment settles its reaction, then diffs
 the expectation against the recorded outcome and reports **all** mismatches at
 once, with the receipt path.
 
@@ -559,7 +559,7 @@ await expect.page.text(page, '#message', 'after');
 await expect.page.exists(page, '[data-cart-count]');
 await expect.page.visible(page, 'dialog');
 await expect.page.computedStyle(page, 'h1', { color: 'rgb(0, 128, 0)' });
-await expect.page.attribute(page, 'p', 'data-hmr', 'gumbox-attr');
+await expect.page.attribute(page, 'p', 'data-hmr', 'witness-attr');
 await expect.page.attribute(page, 'button', 'q-e:click', null); // null = absent
 await expect.page.bodyText(page, { contains: 'after' });
 await expect.page.bodyText(page, { notContains: 'before' });
@@ -659,17 +659,17 @@ await expect.edit(change, {
 
 ## Typed Project Model
 
-Gumbox should provide typed autocomplete from the user's resolved Vite config.
+Async Witness should provide typed autocomplete from the user's resolved Vite config.
 
 This requires a generated ambient type file. TypeScript cannot infer
 runtime-resolved Vite facts from arbitrary `vite.config.*` code without running
-Gumbox.
+Async Witness.
 
 Example:
 
 ```ts
-declare module 'gumbox' {
-	interface GumboxProjectTypes {
+declare module '@async/witness' {
+	interface WitnessProjectTypes {
 		environments: 'client' | 'ssr' | 'rsc';
 		browserEnvironment: 'client';
 		files: 'src/App.tsx' | 'src/message.ts' | 'vite.config.ts';
@@ -710,7 +710,7 @@ plain `string`.
 ### Simple Route Visit
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('dashboard route works', async ({ browser, expect, receipt }) => {
 	const page = await browser.visit('/dashboard');
@@ -727,7 +727,7 @@ network evidence.
 ### HMR
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('message updates without reload', async ({ browser, project, expect }) => {
 	const page = await browser.visit('/demo');
@@ -752,7 +752,7 @@ Did this saved file change update the browser environment without a full reload?
 ### SSR Environment
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('home SSR hydrates cleanly', async ({ environment, browser, expect }) => {
 	const html = await environment.ssr.request('/');
@@ -767,7 +767,7 @@ export default box('home SSR hydrates cleanly', async ({ environment, browser, e
 ### Environment Isolation
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box(
 	'server edit does not reload browser',
@@ -789,7 +789,7 @@ export default box(
 ### Config Change
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box(
 	'vite config change reloads the plugin pipeline',
@@ -817,7 +817,7 @@ Vite lifecycle box.
 ### Build And Preview
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('built app visits dashboard', async ({ pipeline, expect }) => {
 	const build = await pipeline.build();
@@ -838,7 +838,7 @@ Preview routes must stay local to the preview run.
 ### CSS And Asset Parity
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('css module matches dev and preview', async ({ browser, pipeline, expect }) => {
 	const devPage = await browser.visit('/styles');
@@ -867,7 +867,7 @@ Did Vite transform, emit, and serve CSS/assets consistently in dev and preview?
 ### Resolver And Module Identity
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box(
 	'workspace edit invalidates one module identity',
@@ -900,7 +900,7 @@ Did aliases, symlinks, and platform paths resolve to the intended Vite module?
 ### Plugin Hook And Artifact Integrity
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('server manifest placeholder is replaced', async ({ pipeline, expect }) => {
 	const build = await pipeline.build();
@@ -924,7 +924,7 @@ Did the Vite plugin hook evidence and the emitted build output agree?
 ### Runtime Refactor Oracle
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('worker build has no node runtime assumptions', async ({ pipeline, expect }) => {
 	const build = await pipeline.build();
@@ -954,7 +954,7 @@ passed" from "the target Vite runtime pipeline actually works."
 ### Performance Receipt
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('large route reload budget', async ({ browser, receipt, expect }) => {
 	const page = await browser.visit('/large-app');
@@ -987,7 +987,7 @@ await browser.storage.local.set('auth', 'customer');
 await visit('/checkout');
 ```
 
-Those APIs make Gumbox look like a browser/network mocking tool. Vitest Browser
+Those APIs make Async Witness look like a browser/network mocking tool. Vitest Browser
 Mode and Playwright already cover much of that territory.
 
 Future adapters may exist, but they should attach to an environment or framework
@@ -1004,7 +1004,7 @@ it should be explicitly secondary to real app routes and environment evidence.
 
 ## Browser Escape Hatch
 
-An advanced browser handle may exist for cases Gumbox does not model yet:
+An advanced browser handle may exist for cases Async Witness does not model yet:
 
 ```ts
 const page = await browser.page();
@@ -1115,7 +1115,7 @@ export default meta;
 export const Default = { args: {} };
 ```
 
-Gumbox should center the Vite pipeline:
+Async Witness should center the Vite pipeline:
 
 ```ts
 export default box('state name', async ({ browser, expect }) => {
@@ -1126,7 +1126,7 @@ export default box('state name', async ({ browser, expect }) => {
 
 ### No Playwright-First Test Files
 
-Playwright is excellent browser automation, but Gumbox should not put `page` at
+Playwright is excellent browser automation, but Async Witness should not put `page` at
 the center:
 
 ```ts
@@ -1135,7 +1135,7 @@ test('works', async ({ page }) => {
 });
 ```
 
-Gumbox puts project edits and environment evidence at the center:
+Async Witness puts project edits and environment evidence at the center:
 
 ```ts
 box('config change works', async ({ browser, project, expect }) => {
@@ -1150,7 +1150,7 @@ box('config change works', async ({ browser, project, expect }) => {
 
 ## Open Questions
 
-- How should Gumbox choose the default `browser` alias when multiple client-like
+- How should Async Witness choose the default `browser` alias when multiple client-like
   environments exist?
 - Which Vite environment capabilities can be inferred statically, and which
   must be discovered at runtime?

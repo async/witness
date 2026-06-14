@@ -9,7 +9,7 @@ Do not hand-edit generated outputs such as:
 
 - package build output: `dist/`
 - lockfiles: `deno.lock` (change dependencies via `deno.json` + `deno install`)
-- gumbox runtime output: `.gumbox/receipts/`, `.gumbox/types/`
+- witness runtime output: `.witness/receipts/`, `.witness/types/`
 - scratch space: `.tmp/`
 - ruler-generated agent files: root `CLAUDE.md`, root `AGENTS.md`, `.claude/`, editor rule files
   (regenerate with `npx @intellectronica/ruler apply`)

@@ -63,7 +63,7 @@ type ReceiptBox = {
 };
 
 type ReceiptJson = {
-	gumboxReceipt: number;
+	asyncWitnessReceipt: number;
 	summary: { status: string };
 	boxes: ReceiptBox[];
 };
@@ -74,7 +74,7 @@ async function createFixtureProject(fixture = 'browser'): Promise<string> {
 	await fileSystem.mkdir(TMP_ROOT, { recursive: true });
 	const base = await fileSystem.makeTempDirectory({
 		dir: TMP_ROOT,
-		prefix: `gumbox-${fixture}-`,
+		prefix: `witness-${fixture}-`,
 	});
 	const root = await fileSystem.realPath(base);
 	temporaryRoots.push(root);
@@ -114,13 +114,13 @@ describe('browser capability boundary', () => {
 			expect(result.status).toBe('failed');
 			expect(result.boxes[0]?.error?.message).toContain('browser automation capability');
 			expect(result.boxes[0]?.error?.message).toContain('Chromium-family browser');
-			expect(result.boxes[0]?.error?.message).toContain('GUMBOX_BROWSER_PATH');
+			expect(result.boxes[0]?.error?.message).toContain('WITNESS_BROWSER_PATH');
 		},
 		TEST_TIMEOUT_MS,
 	);
 });
 
-describe.skipIf(!availability.available)('gumbox browser evidence', () => {
+describe.skipIf(!availability.available)('witness browser evidence', () => {
 	test(
 		'browser.visit captures screenshot, DOM snapshot, and page assertions into the receipt',
 		async () => {
@@ -463,7 +463,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 	);
 
 	test(
-		'the CLI renders contested witness tokens and gumbox evidence drills into testimony',
+		'the CLI renders contested witness tokens and witness evidence drills into testimony',
 		async () => {
 			const root = await createFixtureProject();
 			const runLines: string[] = [];
@@ -531,13 +531,13 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 				// document created by the mid-wait reload.
 				await page.evaluate(
 					`(() => {
-						window.name = 'gumbox-nav-wait';
-						window.__gumboxOldDocumentMarker = true;
+						window.name = 'witness-nav-wait';
+						window.__witnessOldDocumentMarker = true;
 						setTimeout(() => location.reload(), 100);
 					})()`,
 				);
 				await page.waitForExpression(
-					`window.name === 'gumbox-nav-wait' && window.__gumboxOldDocumentMarker !== true`,
+					`window.name === 'witness-nav-wait' && window.__witnessOldDocumentMarker !== true`,
 					10_000,
 				);
 				await page.close();
@@ -580,7 +580,7 @@ describe.skipIf(!availability.available)('gumbox browser evidence', () => {
 	);
 
 	test(
-		'gumbox preview runs preview-compatible boxes and exits 0 with a receipt',
+		'witness preview runs preview-compatible boxes and exits 0 with a receipt',
 		async () => {
 			const root = await createFixtureProject();
 			const stdoutLines: string[] = [];

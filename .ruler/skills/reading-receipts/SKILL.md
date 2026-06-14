@@ -1,20 +1,20 @@
 ---
 name: reading-receipts
-description: Debug gumbox runs from their receipts — locate the latest receipt, read the per-box timeline, edit outcomes, assertions, and page evidence to find why a box failed or where time went. Use when a box fails, a run is slow, HMR behaves unexpectedly, or you need proof of what the Vite pipeline actually did.
+description: Debug Async Witness runs from their receipts — locate the latest receipt, read the per-box timeline, edit outcomes, assertions, and page evidence to find why a box failed or where time went. Use when a box fails, a run is slow, HMR behaves unexpectedly, or you need proof of what the Vite pipeline actually did.
 ---
 
 # Reading Receipts
 
-Every gumbox run writes a receipt — pass or fail. When anything surprises you, read the
+Every Async Witness run writes a receipt — pass or fail. When anything surprises you, read the
 receipt before reaching for a debugger or rerunning with logging. The evidence is usually
 already there.
 
 ## Locate it
 
 ```sh
-cat .gumbox/receipts/latest                 # run id of the most recent run
-# → .gumbox/receipts/<run-id>/receipt.json  # the receipt
-# → .gumbox/receipts/<run-id>/box-N/        # screenshots + HTML snapshots per box
+cat .witness/receipts/latest                 # run id of the most recent run
+# → .witness/receipts/<run-id>/receipt.json  # the receipt
+# → .witness/receipts/<run-id>/box-N/        # screenshots + HTML snapshots per box
 ```
 
 The CLI also prints the receipt path after every run, and assertion failures embed it.
@@ -65,14 +65,14 @@ against the run: `client` contradicts on page/console errors, `driver` on failed
 `pipeline` on Vite error payloads or edit errors, `box` on failed assertions or restoration.
 Each `against[]` statement carries a stable `kind`, the page, a timestamp, and the text — use
 the `witness` field on timeline events to pull that witness's full story in order. The CLI
-renders the same data: `gumbox evidence [selector]` drills into the latest receipt
+renders the same data: `witness evidence [selector]` drills into the latest receipt
 (`--receipt <run-id|path>` for an older one, `--witness <id>` to narrow, `--json` for the raw
 blocks).
 
 ## Rules
 
 - Receipts are generated output — read them, quote them, never hand-edit them
-  (`.gumbox/` is gitignored).
+  (`.witness/` is gitignored).
 - When reporting a failure, cite the receipt path and the specific evidence
   (timeline entries, outcome fields), not a guess.
 - Timestamps are ISO strings; `seq` orders events when timestamps collide.

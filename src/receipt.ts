@@ -2,7 +2,7 @@ import path from 'pathe';
 import type { PageRecord } from './browser.ts';
 import type { EvidenceStore } from './evidence.ts';
 import { classifyEditOutcome } from './evidence.ts';
-import type { GumboxFileSystem } from './filesystem.ts';
+import type { WitnessFileSystem } from './filesystem.ts';
 import { isPathAlreadyExistsError } from './filesystem.ts';
 import type {
 	AssertionRecord,
@@ -292,10 +292,10 @@ export function runStamp(date = new Date()): string {
 
 export async function createRunDirectory(
 	root: string,
-	fileSystem: GumboxFileSystem,
+	fileSystem: WitnessFileSystem,
 	receiptDir?: string,
 ): Promise<{ runId: string; runDir: string; receiptPath: string; receiptsDir: string }> {
-	const receiptsDir = path.resolve(root, receiptDir ?? path.join('.gumbox', 'receipts'));
+	const receiptsDir = path.resolve(root, receiptDir ?? path.join('.witness', 'receipts'));
 	await fileSystem.mkdir(receiptsDir, { recursive: true });
 	let runId = runStamp();
 	let runDir = path.join(receiptsDir, runId);
@@ -319,7 +319,7 @@ export async function writeRunReceipt(
 	runId: string,
 	receiptPath: string,
 	receipt: Record<string, unknown>,
-	fileSystem: GumboxFileSystem,
+	fileSystem: WitnessFileSystem,
 ): Promise<void> {
 	await fileSystem.writeTextFile(receiptPath, `${JSON.stringify(receipt, null, '\t')}\n`);
 	await fileSystem.writeTextFile(path.join(receiptsDir, 'latest'), `${runId}\n`);

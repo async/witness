@@ -1,8 +1,8 @@
-# Gumbox Specs
+# Async Witness Specs
 
-This folder captures the product and implementation direction for Gumbox.
+This folder captures the product and implementation direction for Async Witness.
 
-Gumbox is a Vite Environment API-first QA receipt tool. It proves how the
+Async Witness is a Vite Environment API-first QA receipt tool. It proves how the
 user's real Vite pipeline reacts to real project states and edits.
 
 ## Specs
@@ -15,7 +15,7 @@ user's real Vite pipeline reacts to real project states and edits.
 
 ## Current Wedge
 
-Gumbox should replace brittle local smoke scripts that manually start Vite,
+Async Witness should replace brittle local smoke scripts that manually start Vite,
 visit app routes, mutate project files, verify HMR, inspect SSR/runtime
 behavior, scan generated artifacts, and leave little or no durable evidence.
 It should also give AI agents and humans a concrete oracle for refactor loops:
@@ -42,7 +42,7 @@ The authoring model follows Vite 8:
 
 ## Canonical Use Cases
 
-HMR is only one receipt class. Gumbox should also cover:
+HMR is only one receipt class. Async Witness should also cover:
 
 - visual UI state browsing from real app routes
 - real route receipts from the user's Vite dev server

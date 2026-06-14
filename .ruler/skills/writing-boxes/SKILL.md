@@ -1,6 +1,6 @@
 ---
 name: writing-boxes
-description: Author gumbox boxes correctly — the box() overloads, name derivation, the six-key context, the declarative expect.edit vocabulary, and the recipes for HMR, SSR isolation, config restarts, build/preview parity, and UI states. Use when writing or reviewing *.box.ts files, replacing smoke scripts with boxes, or asserting on Vite pipeline behavior.
+description: Author Async Witness boxes correctly — the box() overloads, name derivation, the six-key context, the declarative expect.edit vocabulary, and the recipes for HMR, SSR isolation, config restarts, build/preview parity, and UI states. Use when writing or reviewing *.box.ts files, replacing smoke scripts with boxes, or asserting on Vite pipeline behavior.
 ---
 
 # Writing Boxes
@@ -100,5 +100,5 @@ name. All waits are bounded and event-driven; pass `{ timeoutMs }` to adjust one
 - Drive the real Vite pipeline; never mock it.
 - No sleeps — waits resolve on evidence events or page conditions.
 - If you add an assertion, prove it can fail (deliberate-failure boxes exist for this).
-- Boxes never import app code paths that don't exist; run `gumbox <selector>` to verify, and
+- Boxes never import app code paths that don't exist; run `witness <selector>` to verify, and
   read the printed receipt when anything surprises you.

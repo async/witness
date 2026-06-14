@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // The fixture's vite config holds the dependency scanner open for two
 // seconds, so this box always finishes while the scan is still in flight and

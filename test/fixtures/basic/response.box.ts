@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // environment.<name>.fetch(path) returns structured response evidence
 // (status, content-type, headers, body) instead of request()'s body-only

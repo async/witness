@@ -7,7 +7,7 @@ export type FileSystemDirectoryEntry = {
 	isSymlink: boolean;
 };
 
-export type GumboxFileSystemRuntime = {
+export type WitnessFileSystemRuntime = {
 	readTextFile(filePath: string): Promise<string>;
 	writeTextFile(filePath: string, data: string): Promise<void>;
 	mkdir(filePath: string, options?: { recursive?: boolean }): Promise<void>;
@@ -28,7 +28,7 @@ export type GumboxFileSystemRuntime = {
 	stat(filePath: string): Promise<unknown>;
 };
 
-export type GumboxFileSystem = {
+export type WitnessFileSystem = {
 	readTextFile(filePath: string): Promise<string>;
 	writeTextFile(filePath: string, data: string): Promise<void>;
 	mkdir(filePath: string, options?: { recursive?: boolean }): Promise<void>;
@@ -60,7 +60,7 @@ export function isPathNotFoundError(error: unknown): boolean {
 	return code === 'ENOENT' || name === 'NotFound';
 }
 
-export function createFileSystem(runtime: GumboxFileSystemRuntime): GumboxFileSystem {
+export function createFileSystem(runtime: WitnessFileSystemRuntime): WitnessFileSystem {
 	const exists = async (filePath: string): Promise<boolean> => {
 		try {
 			await runtime.stat(filePath);

@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // The Vite app lives in `app/`, not at the box root. This is the shape of a
 // repo whose fixtures are subdirectories (for example qwik-bundler): the box
@@ -40,7 +40,7 @@ export const NestedBuild = box(
 		await expect.build.artifact(build, 'app/dist/index.html');
 		await expect.artifact.exists(build, 'app/dist/index.html');
 		await expect.artifact.text(build, 'app/dist/index.html', {
-			contains: 'Gumbox nested fixture',
+			contains: 'Witness nested fixture',
 		});
 	},
 );

@@ -19,7 +19,7 @@ async function createFixtureProject(fixture = 'basic'): Promise<string> {
 	await fileSystem.mkdir(TMP_ROOT, { recursive: true });
 	const base = await fileSystem.makeTempDirectory({
 		dir: TMP_ROOT,
-		prefix: `gumbox-cli-${fixture}-`,
+		prefix: `witness-cli-${fixture}-`,
 	});
 	const root = await fileSystem.realPath(base);
 	temporaryRoots.push(root);
@@ -115,7 +115,7 @@ describe('cli selector matching', () => {
 	});
 });
 
-describe('gumbox cli', () => {
+describe('witness cli', () => {
 	test(
 		'list shows box names, files, tags, and modes and reports invalid box files',
 		async () => {
@@ -206,10 +206,10 @@ describe('gumbox cli', () => {
 
 			const receiptPath = printedReceiptPath(stdout);
 			const receipt = JSON.parse(await fileSystem.readTextFile(receiptPath)) as {
-				gumboxReceipt: number;
+				asyncWitnessReceipt: number;
 				boxes: unknown[];
 			};
-			expect(receipt.gumboxReceipt).toBe(1);
+			expect(receipt.asyncWitnessReceipt).toBe(1);
 			expect(receipt.boxes).toHaveLength(2);
 		},
 		TEST_TIMEOUT_MS,
@@ -332,7 +332,7 @@ describe('gumbox cli', () => {
 	);
 
 	test(
-		'gumbox preview exits 2 when no preview-compatible boxes exist',
+		'witness preview exits 2 when no preview-compatible boxes exist',
 		async () => {
 			const root = await createFixtureProject();
 			const { code, stderr } = await execCli(['preview'], root);
@@ -375,9 +375,9 @@ describe('gumbox cli', () => {
 
 			expect(code).toBe(0);
 			expect(stdout).toContain('Usage');
-			expect(stdout).toContain('gumbox list');
+			expect(stdout).toContain('witness list');
 			expect(stdout).toContain('--receipt-dir');
-			expect(stdout).toContain('gumbox evidence');
+			expect(stdout).toContain('witness evidence');
 		},
 		TEST_TIMEOUT_MS,
 	);
@@ -438,7 +438,7 @@ describe('gumbox cli', () => {
 	);
 });
 
-describe('gumbox evidence', () => {
+describe('witness evidence', () => {
 	test(
 		'renders witness testimony for the latest receipt by default',
 		async () => {
@@ -522,10 +522,10 @@ describe('gumbox evidence', () => {
 			expect(unknownRun.code).toBe(2);
 			expect(unknownRun.stderr).toContain("no receipt found for 'no-such-run'");
 
-			// --receipt and --witness belong to gumbox evidence only.
+			// --receipt and --witness belong to witness evidence only.
 			const misused = await execCli(['run', 'edits', '--witness', 'client'], root);
 			expect(misused.code).toBe(2);
-			expect(misused.stderr).toContain('only apply to gumbox evidence');
+			expect(misused.stderr).toContain('only apply to witness evidence');
 
 			const badWitness = await execCli(['evidence', '--witness', 'judge'], root);
 			expect(badWitness.code).toBe(2);

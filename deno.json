@@ -1,9 +1,9 @@
 {
-	"name": "gumbox",
+	"name": "@async/witness",
 	"version": "0.1.0",
 	"exports": {
 		".": "./src/index.ts",
-		"./cli": "./src/cli/gumbox.ts"
+		"./cli": "./src/cli/witness.ts"
 	},
 	"nodeModulesDir": "auto",
 	"imports": {
@@ -20,7 +20,7 @@
 		"dev": "deno task manifest && vp test watch",
 		"test:watch": "deno task manifest && vp test watch",
 		"build": "deno task manifest && vp pack",
-		"cli": "deno run -A ./src/cli/gumbox.ts",
+		"cli": "deno run -A ./src/cli/witness.ts",
 		"manifest": "deno run --allow-read=. --allow-write=. ./scripts/generate-package-json.ts",
 		"release": "deno run -A ./scripts/release.ts",
 		"fmt": "vp fmt",

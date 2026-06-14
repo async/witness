@@ -11,7 +11,7 @@ export default {
 	pack: {
 		entry: {
 			index: './src/index.ts',
-			gumbox: './src/cli/gumbox.ts',
+			witness: './src/cli/witness.ts',
 		},
 		format: ['esm'],
 		dts: true,

@@ -1,7 +1,7 @@
 import path from 'pathe';
-import type { GumboxBrowser } from '../browser.ts';
+import type { WitnessBrowser } from '../browser.ts';
 import { discoverBoxes } from '../discovery.ts';
-import type { GumboxFileSystem } from '../filesystem.ts';
+import type { WitnessFileSystem } from '../filesystem.ts';
 import { runBoxes } from '../runner.ts';
 import type { BoxRunResult, DiscoveredBox, InvalidBoxFile } from '../types.ts';
 import { SCENE_WITNESS_IDS, summarizeWitnessVerdicts, WITNESS_IDS } from '../witness.ts';
@@ -29,9 +29,9 @@ export const EXIT_USAGE_OR_SETUP_ERROR = 2;
 export type CliDependencies = {
 	/** Project root the CLI operates on (the host's working directory). */
 	cwd: string;
-	fileSystem: GumboxFileSystem;
+	fileSystem: WitnessFileSystem;
 	/** Browser automation capability used by boxes that visit routes. */
-	browser?: GumboxBrowser;
+	browser?: WitnessBrowser;
 	stdout(line: string): void;
 	stderr(line: string): void;
 	/** ANSI-color human output (default false; the bin shim detects the TTY). */
@@ -121,20 +121,20 @@ function contradictionSummaryLine(witnesses: BoxWitnesses): string | null {
 	return parts.length === 0 ? null : `     ${parts.join('   ')}`;
 }
 
-export const USAGE = `gumbox — Vite pipeline QA boxes that write receipts
+export const USAGE = `witness — Vite pipeline QA boxes that write receipts
 
 Usage:
-  gumbox [selector] [options]      run matching boxes headlessly
-  gumbox run [selector] [options]  explicit form of gumbox [selector]
-  gumbox preview [--run]           run preview-mode boxes against built output
-  gumbox list [--json]             list discovered boxes without running them
-  gumbox evidence [selector]       show per-witness testimony from a receipt
+  witness [selector] [options]      run matching boxes headlessly
+  witness run [selector] [options]  explicit form of witness [selector]
+  witness preview [--run]           run preview-mode boxes against built output
+  witness list [--json]             list discovered boxes without running them
+  witness evidence [selector]       show per-witness testimony from a receipt
 
 Selectors match like Vitest: exact file path, glob, box name, file basename, or tag.
 
 Options:
   --json               machine-readable output for CI and agents
-  --receipt-dir <dir>  write receipts under <dir> (default .gumbox/receipts)
+  --receipt-dir <dir>  write receipts under <dir> (default .witness/receipts)
   --mode <mode>        only run boxes that declare <mode> (dev, build, ...)
   --preview            shorthand for --mode preview
   --headed             run browser sessions with a visible window
@@ -151,7 +151,7 @@ Not implemented in this slice: open, types, replay, doctor, init, migrate,
 --ui, --watch, preview --open.`;
 
 const LATER_SLICE_COMMANDS: Record<string, string> = {
-	open: 'the /__gumbox dev middleware slice',
+	open: 'the /__witness dev middleware slice',
 	types: 'the typegen slice',
 	replay: 'the receipt viewer slice',
 	doctor: 'the typegen slice',
@@ -160,7 +160,7 @@ const LATER_SLICE_COMMANDS: Record<string, string> = {
 };
 
 const LATER_SLICE_FLAGS: Record<string, string> = {
-	'--ui': 'the Gumbox UI ships with the dev middleware slice',
+	'--ui': 'the Async Witness UI ships with the dev middleware slice',
 	'--watch': 'watch mode ships with a later slice',
 	'--open': 'the preview state gallery ships with the dev middleware slice',
 };
@@ -187,7 +187,7 @@ type CliCommand = RunCommand | ListCommand | EvidenceCommand | HelpCommand;
 type ParseResult = { command: CliCommand } | { error: string };
 
 function usageError(message: string): ParseResult {
-	return { error: `${message} Run gumbox --help for usage.` };
+	return { error: `${message} Run witness --help for usage.` };
 }
 
 function parseCliArguments(args: string[]): ParseResult {
@@ -259,11 +259,11 @@ function parseCliArguments(args: string[]): ParseResult {
 	const [first, second, ...extra] = positionals;
 	if (first !== undefined && LATER_SLICE_COMMANDS[first] !== undefined) {
 		return {
-			error: `gumbox ${first} is not implemented yet; it ships with ${LATER_SLICE_COMMANDS[first]}.`,
+			error: `witness ${first} is not implemented yet; it ships with ${LATER_SLICE_COMMANDS[first]}.`,
 		};
 	}
 	if (runFlag && first !== 'preview') {
-		return usageError('--run only applies to gumbox preview.');
+		return usageError('--run only applies to witness preview.');
 	}
 	if (first === 'evidence') {
 		if (extra.length > 0) {
@@ -283,19 +283,19 @@ function parseCliArguments(args: string[]): ParseResult {
 		};
 	}
 	if (receiptReference !== null || witnessFilter !== null) {
-		return usageError('--receipt and --witness only apply to gumbox evidence.');
+		return usageError('--receipt and --witness only apply to witness evidence.');
 	}
 	if (first === 'list') {
 		if (second !== undefined) {
-			return usageError(`gumbox list does not take a selector ('${second}').`);
+			return usageError(`witness list does not take a selector ('${second}').`);
 		}
 		return { command: { kind: 'list', json } };
 	}
 	if (first === 'preview') {
 		if (second !== undefined) {
-			return usageError(`gumbox preview does not take a selector ('${second}').`);
+			return usageError(`witness preview does not take a selector ('${second}').`);
 		}
-		// `gumbox preview` runs preview-compatible boxes (those declaring the
+		// `witness preview` runs preview-compatible boxes (those declaring the
 		// 'preview' mode); --run is the explicit form of the same behavior.
 		return {
 			command: { kind: 'run', selector: null, json, receiptDir, mode: 'preview', headed },
@@ -396,7 +396,7 @@ async function runRunCommand(command: RunCommand, deps: CliDependencies): Promis
 		if (command.json) {
 			deps.stdout(JSON.stringify({ status: 'error', error: reason }));
 		}
-		deps.stderr(`${reason} Run gumbox list to see discovered boxes.`);
+		deps.stderr(`${reason} Run witness list to see discovered boxes.`);
 		return EXIT_USAGE_OR_SETUP_ERROR;
 	}
 
@@ -520,8 +520,8 @@ type ReceiptBoxRecord = {
 };
 
 /**
- * Resolves which receipt `gumbox evidence` reads: an explicit receipt.json
- * path, a run directory, a run id under .gumbox/receipts, or (default) the
+ * Resolves which receipt `witness evidence` reads: an explicit receipt.json
+ * path, a run directory, a run id under .witness/receipts, or (default) the
  * run the `latest` pointer names.
  */
 async function resolveEvidenceReceiptPath(
@@ -529,7 +529,7 @@ async function resolveEvidenceReceiptPath(
 	deps: CliDependencies,
 ): Promise<string | null> {
 	const { fileSystem, cwd } = deps;
-	const receiptsDir = path.resolve(cwd, '.gumbox', 'receipts');
+	const receiptsDir = path.resolve(cwd, '.witness', 'receipts');
 	if (reference === null) {
 		const latestPointer = path.join(receiptsDir, 'latest');
 		if (!(await fileSystem.exists(latestPointer))) {
@@ -774,7 +774,7 @@ function renderBoxEvidence(args: {
 	const witnesses = box.witnesses;
 	if (witnesses === undefined) {
 		out('');
-		out('this receipt predates witness evidence; rerun gumbox to record testimony.');
+		out('this receipt predates witness evidence; rerun witness to record testimony.');
 		return;
 	}
 	const blotterLines = renderCrimeBlotter(witnesses, paint);
@@ -817,7 +817,7 @@ async function runEvidenceCommand(
 	if (receiptPath === null) {
 		deps.stderr(
 			command.receipt === null
-				? `no receipt found under ${path.resolve(deps.cwd, '.gumbox', 'receipts')}. Run gumbox first.`
+				? `no receipt found under ${path.resolve(deps.cwd, '.witness', 'receipts')}. Run witness first.`
 				: `no receipt found for '${command.receipt}'.`,
 		);
 		return EXIT_USAGE_OR_SETUP_ERROR;
@@ -899,7 +899,7 @@ export async function runCli(args: string[], deps: CliDependencies): Promise<num
 		}
 		return await runRunCommand(parsed.command, deps);
 	} catch (error) {
-		deps.stderr(`gumbox: ${errorMessage(error)}`);
+		deps.stderr(`witness: ${errorMessage(error)}`);
 		return EXIT_USAGE_OR_SETUP_ERROR;
 	}
 }

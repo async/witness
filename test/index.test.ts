@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { gumbox } from '../src/index.ts';
+import { witness } from '../src/index.ts';
 
-describe('gumbox', () => {
+describe('witness', () => {
 	test('creates a Vite plugin shell', () => {
-		expect(gumbox()).toEqual({
-			name: 'gumbox',
+		expect(witness()).toEqual({
+			name: 'async-witness',
 		});
 	});
 });

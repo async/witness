@@ -1,6 +1,6 @@
 ---
 name: diagrams
-description: Create gumbox's hand-crafted SVG diagrams — GitHub-Primer flat cards with theme-adaptive colors, sparkle accents, and headless-Chrome verification on both themes. Use when adding or editing diagrams in the README, CONTRIBUTING, or docs. Never use mermaid in committed markdown.
+description: Create Async Witness's hand-crafted SVG diagrams — GitHub-Primer flat cards with theme-adaptive colors, sparkle accents, and headless-Chrome verification on both themes. Use when adding or editing diagrams in the README, CONTRIBUTING, or docs. Never use mermaid in committed markdown.
 ---
 
 # Diagrams

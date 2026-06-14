@@ -4,21 +4,21 @@ export { box, isBoxDefinition } from './box.ts';
 export { discoverBoxes } from './discovery.ts';
 export { createFileSystem } from './filesystem.ts';
 export { restorePendingEdits, runBoxes } from './runner.ts';
-export { GumboxAssertionError } from './expect.ts';
-export { GumboxTimeoutError } from './evidence.ts';
+export { WitnessAssertionError } from './expect.ts';
+export { WitnessTimeoutError } from './evidence.ts';
 export type {
 	FileSystemDirectoryEntry,
-	GumboxFileSystem,
-	GumboxFileSystemRuntime,
+	WitnessFileSystem,
+	WitnessFileSystemRuntime,
 } from './filesystem.ts';
 export type {
 	BrowserConsoleMessage,
 	BrowserLaunchOptions,
 	BrowserPageError,
 	BrowserRequestFailure,
-	GumboxBrowser,
-	GumboxBrowserPage,
-	GumboxBrowserSession,
+	WitnessBrowser,
+	WitnessBrowserPage,
+	WitnessBrowserSession,
 	PageHandle,
 	PageInteraction,
 	PageNavigation,
@@ -91,8 +91,8 @@ export type {
 	ViteUpdateEvidence,
 } from './types.ts';
 
-export function gumbox(): Plugin {
+export function witness(): Plugin {
 	return {
-		name: 'gumbox',
+		name: 'async-witness',
 	};
 }

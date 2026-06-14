@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box(
 	{ name: 'dashboard route works in dev', tags: ['ui'], modes: ['dev'], ui: true },

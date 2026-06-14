@@ -2,7 +2,7 @@
  * Generates the npm-consumption manifest (package.json) at the repo root from
  * deno.json, which is the canonical workspace/package manifest. The generated
  * package.json is gitignored build output: it only exists so package managers
- * (for example pnpm with `"gumbox": "link:../gumbox"`) can resolve this
+ * (for example `"@async/witness": "link:../witness"`) can resolve this
  * package and its dist build + CLI bin.
  *
  * This is a host-side Deno tool. It lives outside src/ and test/ on purpose:
@@ -11,7 +11,7 @@
  *
  * Dependency posture: the manifest intentionally lists NO dependencies. The
  * dist build externalizes mitt/pathe/tinyglobby, and Node resolves those
- * through gumbox's own node_modules (populated by `deno install`) because
+ * through witness's own node_modules (populated by `deno install`) because
  * module resolution follows the link's real path. Only the vite peer range
  * is declared, taken from deno.json imports.
  */
@@ -29,7 +29,7 @@ function requireField(value: string | undefined, field: string): string {
 	return value;
 }
 
-// Consumers bring their own vite (gumbox drives the project's copy at
+// Consumers bring their own vite (witness drives the project's copy at
 // runtime — see src/vite-loader.ts). The workspace pins vite directly in
 // deno.json so the loader's bare `import('vite')` fallback resolves from a
 // fresh install, but consumers only see this peer range.
@@ -51,10 +51,10 @@ const packageManifest = {
 			types: './dist/index.d.mts',
 			default: './dist/index.mjs',
 		},
-		'./cli': './dist/cli/gumbox.mjs',
+		'./cli': './dist/witness.mjs',
 	},
 	bin: {
-		gumbox: './dist/cli/gumbox.mjs',
+		witness: './dist/witness.mjs',
 	},
 	peerDependencies: {
 		vite: vitePeerRange,

@@ -2,7 +2,7 @@
 
 ## Positioning
 
-Gumbox is the Vite Environment API-first QA receipt tool.
+Async Witness is the Vite Environment API-first QA receipt tool.
 
 It is not "better Vitest", a Storybook clone, or a generic browser automation
 runner. It lives in QA and test territory, but the thing it proves is different:
@@ -15,7 +15,7 @@ The short product rule:
 
 The user-facing product should also make visible UI states easy to browse:
 
-> A Gumbox state is a real app route or environment state, shown through the
+> A Async Witness state is a real app route or environment state, shown through the
 > user's Vite pipeline, with a receipt attached.
 
 A receipt reads as correlated testimony. The pipeline, the client, and the
@@ -48,9 +48,9 @@ expect.edit(change, { <name>: expectation })
 
 Those names come from the user's resolved Vite environments.
 
-## What Gumbox Proves
+## What Async Witness Proves
 
-Gumbox should prove Vite pipeline behavior that existing UI/browser tools do not
+Async Witness should prove Vite pipeline behavior that existing UI/browser tools do not
 make first-class:
 
 - dev server startup, restart, config reloads, and env-file changes
@@ -84,7 +84,7 @@ project edit -> Vite environment event -> browser/SSR/build/artifact result
 ## Canonical QA Use Cases
 
 HMR is a strong first demo, but it is not enough to define the product. The
-broader Gumbox wedge is Vite pipeline QA.
+broader Async Witness wedge is Vite pipeline QA.
 
 Use cases that should shape the MVP and early roadmap:
 
@@ -123,7 +123,7 @@ Use cases that should shape the MVP and early roadmap:
   machine-readable receipt that proves whether the actual Vite pipeline still
   works after a refactor.
 
-These use cases keep Gumbox away from generic browser testing while giving it
+These use cases keep Async Witness away from generic browser testing while giving it
 more than one sharp value case. The question is not only "did the UI render?"
 or "did HMR work?" It is:
 
@@ -134,7 +134,7 @@ the receipt explain the chain of Vite events that led there?
 
 ## Agent Verification Oracle
 
-Gumbox should be useful for human QA, but it should also be designed as an
+Async Witness should be useful for human QA, but it should also be designed as an
 oracle for AI-assisted refactor loops.
 
 The tooling gap is not that agents cannot write code. The gap is that agents
@@ -147,7 +147,7 @@ The code compiles, but the actual Vite/Nitro/Qwik/Cloudflare/Electron pipeline
 does not run.
 ```
 
-Gumbox receipts should reduce both failure modes:
+Async Witness receipts should reduce both failure modes:
 
 - **False positive:** the agent reports success because typecheck/unit tests pass,
   but Vite dev, HMR, SSR, build, preview, or runtime output is broken.
@@ -155,7 +155,7 @@ Gumbox receipts should reduce both failure modes:
   unnecessary adapters, config, mocks, or fallback code to work around an
   unverified assumption.
 
-For large refactors, Gumbox should act as the pipeline acceptance check:
+For large refactors, Async Witness should act as the pipeline acceptance check:
 
 ```text
 refactor -> run boxes -> inspect receipt -> continue or revert/simplify
@@ -183,15 +183,15 @@ able to consume a receipt and know:
 - whether the next action should be "fix the pipeline" or "remove unnecessary
   workaround code"
 
-This is where Gumbox is more than a state gallery. It becomes the verification
+This is where Async Witness is more than a state gallery. It becomes the verification
 surface that lets agents safely work on Vite-heavy codebases without constant
 manual pipeline QA.
 
 ## Visual State Gallery
 
-Seeing UI states is first-class Gumbox behavior.
+Seeing UI states is first-class Async Witness behavior.
 
-The distinction from Storybook is that Gumbox does not render stories inside a
+The distinction from Storybook is that Async Witness does not render stories inside a
 separate documentation app. A visual state is a box that reaches a visible state
 through the user's Vite app:
 
@@ -210,7 +210,7 @@ box('empty cart', async ({ browser, expect, receipt }) => {
 });
 ```
 
-The Gumbox UI should list these boxes as a state gallery with:
+The Async Witness UI should list these boxes as a state gallery with:
 
 - state name, tags, source file, and route
 - live or captured preview from the real app route
@@ -255,7 +255,7 @@ The default browser/client environment receives an ergonomic alias:
 browser === environment.client;
 ```
 
-If a project uses a different name for its browser-capable environment, Gumbox
+If a project uses a different name for its browser-capable environment, Async Witness
 should resolve `browser` to that configured default and show the alias target in
 the receipt.
 
@@ -266,7 +266,7 @@ Capabilities are environment-specific:
 - runnable environments may expose `import(id)`
 - build environments contribute build and artifact evidence
 
-Gumbox should not pretend every environment supports every operation. The type
+Async Witness should not pretend every environment supports every operation. The type
 model should autocomplete only known capabilities when possible, while still
 allowing string fallbacks for dynamic projects.
 
@@ -277,10 +277,10 @@ allowing string fallbacks for dynamic projects.
 | Storybook           | Component stories            | UI states render in an isolated catalog                                        |
 | Vitest Browser Mode | Browser-run test modules     | Test modules pass in a Vitest-controlled browser runner                        |
 | Playwright          | Browser automation           | User flows work across pages and browsers                                      |
-| Gumbox              | Real app states and receipts | The user's Vite dev, environment, HMR, SSR, build, preview, and artifact chain |
+| Async Witness       | Real app states and receipts | The user's Vite dev, environment, HMR, SSR, build, preview, and artifact chain |
 
 Vitest Browser Mode has real overlap around rendering, DOM assertions, browser
-sessions, traces, screenshots, and future network mocking. Gumbox should not
+sessions, traces, screenshots, and future network mocking. Async Witness should not
 compete there.
 
 The non-overlap is Vite pipeline causality:
@@ -293,16 +293,16 @@ edit src/message.ts
 -> receipt preserved the Vite event chain
 ```
 
-That is Gumbox territory.
+That is Async Witness territory.
 
 ## Vite Pipeline Ownership
 
-Gumbox must use the user's Vite pipeline, not recreate one.
+Async Witness must use the user's Vite pipeline, not recreate one.
 
 Expected implementation direction:
 
 - load the user's existing `vite.config.*`
-- inject Gumbox instrumentation only for the current run
+- inject Async Witness instrumentation only for the current run
 - use Vite `createServer(...)` for dev
 - use Vite 8 `server.environments` for dev environment evidence
 - use Vite 8 `createBuilder(...)` for build and multi-environment validation
@@ -310,14 +310,14 @@ Expected implementation direction:
 - record Vite plugin hooks, module graphs, HMR payloads, config dependencies,
   env files, middleware, virtual modules, and artifacts
 
-Gumbox should not manually bundle, manually emulate HMR, or run the app inside a
+Async Witness should not manually bundle, manually emulate HMR, or run the app inside a
 special browser-only test environment.
 
 ## Anti-Drift Guardrails
 
 ### Not Storybook
 
-Gumbox may show UI states, but those states are evidence from the user's app
+Async Witness may show UI states, but those states are evidence from the user's app
 pipeline. If a feature only catalogs components in a separate documentation app,
 it belongs outside the MVP.
 
@@ -342,7 +342,7 @@ Not the MVP center:
 
 ### Not Vitest Browser Mode
 
-Gumbox may use a browser internally, but its public API should not become a
+Async Witness may use a browser internally, but its public API should not become a
 browser test runner.
 
 Avoid centering:
@@ -392,7 +392,7 @@ const change = await project.edit.config({
 await expect.edit(change, { server: 'restarted' });
 ```
 
-Gumbox should correlate each edit with environment events:
+Async Witness should correlate each edit with environment events:
 
 - update
 - full reload
@@ -405,7 +405,7 @@ Gumbox should correlate each edit with environment events:
 
 ## 10/10 Wedge
 
-The most valuable Gumbox explains why a QA state passed or failed.
+The most valuable Async Witness explains why a QA state passed or failed.
 
 Example failure:
 
@@ -418,20 +418,20 @@ Observed Vite payload: full-reload
 Triggered by plugin: qwik-bundler-dev
 SSR environment invalidated: false
 Browser reloaded before DOM reached expected state.
-Receipt written: .gumbox/receipts/...
+Receipt written: .witness/receipts/...
 ```
 
 The failure reads as witness testimony, with each line attributable to the
 pipeline, the client, or the driver witness.
 
 This is the gap between browser automation and Vite internals. Playwright can
-observe the page. Vitest Browser Mode can execute browser tests. Gumbox should
+observe the page. Vitest Browser Mode can execute browser tests. Async Witness should
 connect the page, SSR/build output, and artifacts back to the Vite environment
 event chain.
 
 ## Typed Authoring From Vite Config
 
-Gumbox should make boxes feel like they are authored inside the user's Vite
+Async Witness should make boxes feel like they are authored inside the user's Vite
 project.
 
 The CLI/plugin should load the resolved Vite config and generate a project type

@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 /**
  * Both boxes pin the dev server to the same port so they share an origin:

@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // Simulates a run interrupted mid-box: the edit lands on disk and the box
 // never finishes on its own, so the per-box restoration in the runner's

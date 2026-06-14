@@ -1,7 +1,7 @@
 import path from 'pathe';
 import { glob } from 'tinyglobby';
 import type { InlineConfig } from 'vite';
-import type { GumboxFileSystem } from './filesystem.ts';
+import type { WitnessFileSystem } from './filesystem.ts';
 import { resolveWithinRoot } from './project.ts';
 import { hostNodeEnv, loadProjectVite } from './vite-loader.ts';
 import type { ViteModule } from './vite-loader.ts';
@@ -48,7 +48,7 @@ function relativeOutDir(root: string, buildRoot: string, outDir: string | undefi
 async function scanArtifacts(
 	root: string,
 	outDirs: string[],
-	fileSystem: GumboxFileSystem,
+	fileSystem: WitnessFileSystem,
 ): Promise<BuildArtifact[]> {
 	const found = await glob(
 		outDirs.map((outDir) => `${outDir}/**/*`),
@@ -81,7 +81,7 @@ function describeArtifacts(artifacts: readonly BuildArtifact[]): string {
  */
 export async function runPipelineBuild(args: {
 	root: string;
-	fileSystem: GumboxFileSystem;
+	fileSystem: WitnessFileSystem;
 	buildId: string;
 	options?: PipelineBuildOptions | undefined;
 	onTimeline(type: string, detail: Record<string, unknown>): void;
@@ -105,7 +105,7 @@ export async function runPipelineBuild(args: {
 
 	const outDirs: Record<string, string> = {};
 	let environments: string[];
-	// Faithfulness, not policy: gumbox runs the build with whatever NODE_ENV
+	// Faithfulness, not policy: witness runs the build with whatever NODE_ENV
 	// the operator launched it with (vite itself resolves production when it
 	// is unset), and the receipt records what the build actually saw — plugins
 	// gate production-only output on it.

@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export const PreviewDashboard = box(
 	{ name: 'built app serves dashboard in preview', tags: ['preview'], modes: ['preview'] },

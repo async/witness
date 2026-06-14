@@ -1,7 +1,7 @@
 import path from 'pathe';
 import type { FSWatcher, InlineConfig, ViteDevServer } from 'vite';
 import { createBrowserEvidence, missingBrowserCapabilityError } from './browser.ts';
-import type { GumboxBrowser, PageHandle } from './browser.ts';
+import type { WitnessBrowser, PageHandle } from './browser.ts';
 import { runPipelineBuild } from './build.ts';
 import { discoverBoxes } from './discovery.ts';
 import { createEnvironmentRuntime } from './environments.ts';
@@ -9,7 +9,7 @@ import type { EnvironmentRuntime } from './environments.ts';
 import { connectHotWebSocket, createEvidencePlugin, EvidenceStore } from './evidence.ts';
 import { loadProjectVite, withoutNodeEnvLeak } from './vite-loader.ts';
 import { createExpectApi } from './expect.ts';
-import type { GumboxFileSystem } from './filesystem.ts';
+import type { WitnessFileSystem } from './filesystem.ts';
 import { startPipelinePreview } from './preview.ts';
 import { createProjectApi } from './project.ts';
 import { BoxRecorder, createRunDirectory, writeRunReceipt } from './receipt.ts';
@@ -137,8 +137,8 @@ async function runSingleBox(args: {
 	receiptPath: string;
 	boxIndex: number;
 	assertionTimeoutMs: number;
-	fileSystem: GumboxFileSystem;
-	browser: GumboxBrowser | undefined;
+	fileSystem: WitnessFileSystem;
+	browser: WitnessBrowser | undefined;
 	headless: boolean;
 }): Promise<{ result: BoxRunResult; receipt: Record<string, unknown> }> {
 	const {
@@ -473,7 +473,7 @@ export function orderBoxesForRun(boxes: DiscoveredBox[]): DiscoveredBox[] {
 
 /**
  * Runs boxes against a project root and writes one versioned receipt for the
- * whole run to `<root>/.gumbox/receipts/<run id>/receipt.json`, plus a
+ * whole run to `<root>/.witness/receipts/<run id>/receipt.json`, plus a
  * `latest` pointer file. A receipt is written even when boxes fail.
  */
 export async function runBoxes(options: RunBoxesOptions): Promise<RunBoxesResult> {
@@ -495,7 +495,7 @@ export async function runBoxes(options: RunBoxesOptions): Promise<RunBoxesResult
 	const results: BoxRunResult[] = [];
 	const boxReceipts: Record<string, unknown>[] = [];
 	for (const [index, discovered] of boxes.entries()) {
-		// Every box starts from the env the operator launched gumbox with:
+		// Every box starts from the env the operator launched witness with:
 		// Vite's own phases mutate NODE_ENV (dev sets development, build sets
 		// production) and one box's pipeline must not bleed into the next.
 		const { result, receipt } = await withoutNodeEnvLeak(() =>
@@ -519,7 +519,7 @@ export async function runBoxes(options: RunBoxesOptions): Promise<RunBoxesResult
 	const status: 'passed' | 'failed' = failed === 0 ? 'passed' : 'failed';
 	const contested = results.filter((result) => result.contested).length;
 	const receipt = {
-		gumboxReceipt: 1,
+		asyncWitnessReceipt: 1,
 		runId,
 		createdAt: new Date().toISOString(),
 		root,

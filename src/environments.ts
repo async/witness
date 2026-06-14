@@ -50,7 +50,7 @@ export function createEnvironmentRuntime(
 	const serverUrl = server.resolvedUrls?.local[0];
 	if (serverUrl === undefined) {
 		throw new Error(
-			'the Vite dev server did not report a local URL; Gumbox needs a listening (non-middleware) dev server.',
+			'the Vite dev server did not report a local URL; Witness needs a listening (non-middleware) dev server.',
 		);
 	}
 	const names = Object.keys(server.environments);

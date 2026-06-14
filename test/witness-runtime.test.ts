@@ -63,7 +63,7 @@ type ReceiptBox = {
 };
 
 type ReceiptJson = {
-	gumboxReceipt: number;
+	asyncWitnessReceipt: number;
 	runId: string;
 	summary: { status: string; total: number };
 	boxes: ReceiptBox[];
@@ -75,7 +75,7 @@ async function createFixtureProject(fixture = 'basic'): Promise<string> {
 	await fileSystem.mkdir(TMP_ROOT, { recursive: true });
 	const base = await fileSystem.makeTempDirectory({
 		dir: TMP_ROOT,
-		prefix: `gumbox-${fixture}-`,
+		prefix: `witness-${fixture}-`,
 	});
 	// realpath so watcher file events match the configured Vite root in case
 	// any segment of the repo path sits behind a symlink.
@@ -103,7 +103,7 @@ afterEach(async () => {
 	);
 });
 
-describe('gumbox runtime', () => {
+describe('witness runtime', () => {
 	test(
 		'discovers box files and reports invalid box files with actionable errors',
 		async () => {
@@ -152,7 +152,7 @@ describe('gumbox runtime', () => {
 			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
 
 			const latest = (
-				await fileSystem.readTextFile(path.join(root, '.gumbox', 'receipts', 'latest'))
+				await fileSystem.readTextFile(path.join(root, '.witness', 'receipts', 'latest'))
 			).trim();
 			expect(latest).toBe(result.runId);
 			expect(path.basename(result.runDir)).toBe(result.runId);
@@ -160,7 +160,7 @@ describe('gumbox runtime', () => {
 			const receipt = JSON.parse(
 				await fileSystem.readTextFile(result.receiptPath),
 			) as ReceiptJson;
-			expect(receipt.gumboxReceipt).toBe(1);
+			expect(receipt.asyncWitnessReceipt).toBe(1);
 			expect(receipt.summary.status).toBe('passed');
 
 			const boxReceipt = receipt.boxes[0]!;
@@ -510,7 +510,7 @@ describe('gumbox runtime', () => {
 			const receipt = JSON.parse(
 				await fileSystem.readTextFile(result.receiptPath),
 			) as ReceiptJson;
-			expect(receipt.gumboxReceipt).toBe(1);
+			expect(receipt.asyncWitnessReceipt).toBe(1);
 			expect(receipt.summary.status).toBe('failed');
 			const boxReceipt = receipt.boxes[0]!;
 			expect(boxReceipt.status).toBe('failed');
@@ -804,7 +804,7 @@ describe('gumbox runtime', () => {
 	test(
 		'discovery does not leak its NODE_ENV into the build the user would run',
 		async () => {
-			// A plain `gumbox` shell launch carries no NODE_ENV; discovery's
+			// A plain `witness` shell launch carries no NODE_ENV; discovery's
 			// module runner sets one as a side effect and must clean it up, so
 			// the build resolves production exactly like the user's own
 			// `vite build` command would.
@@ -859,7 +859,7 @@ describe('gumbox runtime', () => {
 			expect(result.status).toBe('failed');
 			expect(result.boxes[0]?.error?.message).toContain('forbidden string(s) leaked');
 			expect(result.boxes[0]?.error?.message).toContain('dist/server/entry-server.js');
-			expect(result.boxes[0]?.error?.message).toContain('GUMBOX_SERVER_ONLY_SECRET');
+			expect(result.boxes[0]?.error?.message).toContain('WITNESS_SERVER_ONLY_SECRET');
 
 			const receipt = JSON.parse(
 				await fileSystem.readTextFile(result.receiptPath),
@@ -955,9 +955,9 @@ describe('receipt witness evidence', () => {
 				await fileSystem.readTextFile(result.receiptPath),
 			) as ReceiptJson & Record<string, unknown>;
 
-			// Back-compat bar: gumboxReceipt stays 1 and every legacy field is
+			// Back-compat bar: asyncWitnessReceipt stays 1 and every legacy field is
 			// still present with the new fields riding alongside.
-			expect(receipt.gumboxReceipt).toBe(1);
+			expect(receipt.asyncWitnessReceipt).toBe(1);
 			for (const field of LEGACY_RUN_FIELDS) {
 				expect(receipt, `run field '${field}'`).toHaveProperty(field);
 			}

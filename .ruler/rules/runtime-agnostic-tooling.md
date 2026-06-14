@@ -1,6 +1,6 @@
 # Runtime-Agnostic Tooling Rule
 
-Gumbox library code must run anywhere Vite runs: Node, Deno, and Bun. The workspace itself runs on
+Async Witness library code must run anywhere Vite runs: Node, Deno, and Bun. The workspace itself runs on
 Deno. Generated code must always pick the fastest, most portable tool available — native tooling
 with TypeScript APIs and the unjs ecosystem first.
 
@@ -26,23 +26,23 @@ with TypeScript APIs and the unjs ecosystem first.
 | Hashing/object hash         | `ohash` or `globalThis.crypto` (Web Crypto)                                      | `node:crypto`                    |
 | HTTP requests               | global `fetch`                                                                   | `node:http`, `axios`             |
 | Temp/scratch space in tests | repo-local `.tmp/` directory (gitignored)                                        | `node:os` `tmpdir()`             |
-| Filesystem access           | injected `GumboxFileSystem` from `src/filesystem.ts`                             | direct runtime FS imports        |
+| Filesystem access           | injected `WitnessFileSystem` from `src/filesystem.ts`                            | direct runtime FS imports        |
 
 ## Filesystem Boundary
 
 The library needs real filesystem access for project edits and receipts, but library code must not
-find runtime filesystem APIs itself. `src/filesystem.ts` exposes `GumboxFileSystem` plus
+find runtime filesystem APIs itself. `src/filesystem.ts` exposes `WitnessFileSystem` plus
 `createFileSystem(runtime)`, and callers such as the CLI, adapters, and tests must inject that
 capability into `runBoxes()`.
 
-Only explicit host boundaries may adapt runtime filesystem APIs into `GumboxFileSystem`. In this
+Only explicit host boundaries may adapt runtime filesystem APIs into `WitnessFileSystem`. In this
 repo, `test/support/host-file-system.ts` is the test-only host boundary because the Vite HMR tests
 need real files on disk. Keep that adapter small and do not import `node:fs`, `node:fs/promises`,
 or scatter direct filesystem access through `src/` or test bodies.
 
 ## Fast Native Tooling
 
-- AST work in the gumbox plugin uses rolldown/oxc's native parser — `parseAst` from `rolldown` (or
+- AST work in the witness plugin uses rolldown/oxc's native parser — `parseAst` from `rolldown` (or
   `oxc-parser` directly). Never add babel, acorn, esprima, or a second JS parser; never parse with
   the `typescript` compiler API at runtime.
 - String-position transforms use `magic-string`, not re-printing an AST.

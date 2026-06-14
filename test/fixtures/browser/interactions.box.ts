@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // page.click is the minimal interaction primitive: it lets a box reach a
 // user-made UI state (for example a counter at a known count) before an edit,

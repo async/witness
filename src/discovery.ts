@@ -10,16 +10,16 @@ const SKIPPED_DIRECTORY_GLOBS = [
 	'**/node_modules/**',
 	'**/dist/**',
 	'**/.git/**',
-	'**/.gumbox/**',
+	'**/.witness/**',
 	'**/.vite/**',
 ];
 
 /**
- * Box files import 'gumbox', but discovered projects (for example a
+ * Box files import '@async/witness', but discovered projects (for example a
  * fixture copied to a temp dir) may have no node_modules. The import is
  * aliased to this package's own entry module instead.
  */
-function gumboxEntryFile(): string {
+function witnessEntryFile(): string {
 	const self = fileURLToPath(import.meta.url);
 	// During development this module is `src/discovery.ts` and the public TS
 	// entry sits next to it. In the published build this code lives in a
@@ -107,14 +107,14 @@ export async function discoverBoxes(options: { root: string }): Promise<Discover
 	for (const file of await collectBoxFiles(root)) {
 		const relativeFile = path.relative(root, file).split(path.sep).join('/');
 		try {
-			// The module runner sets NODE_ENV when unset; discovery is gumbox
+			// The module runner sets NODE_ENV when unset; discovery is witness
 			// machinery and must not change what the user's pipeline later sees.
 			const { module } = await withoutNodeEnvLeak(() =>
 				vite.runnerImport<Record<string, unknown>>(file, {
 					root,
 					logLevel: 'error',
 					resolve: {
-						alias: { gumbox: gumboxEntryFile() },
+						alias: { '@async/witness': witnessEntryFile() },
 					},
 				}),
 			);
@@ -125,7 +125,7 @@ export async function discoverBoxes(options: { root: string }): Promise<Discover
 				invalid.push({
 					file,
 					relativeFile,
-					error: `${relativeFile} does not export a box. Export the result of box(name, run) from 'gumbox' as the default export or a named export.`,
+					error: `${relativeFile} does not export a box. Export the result of box(name, run) from '@async/witness' as the default export or a named export.`,
 				});
 				continue;
 			}

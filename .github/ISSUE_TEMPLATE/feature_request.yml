@@ -6,7 +6,7 @@ body:
     - type: markdown
       attributes:
           value: |
-              The [specs](https://github.com/gumtools/gumbox/tree/main/specs) are the product
+              The [specs](https://github.com/async/witness/tree/main/specs) are the product
               truth — worth a skim first, since what you want may already be designed and just
               not built yet (see the Status section of the README for what's landed).
     - type: textarea

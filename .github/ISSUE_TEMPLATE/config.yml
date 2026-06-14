@@ -1,8 +1,5 @@
 blank_issues_enabled: true
 contact_links:
     - name: Specs — the product truth
-      url: https://github.com/gumtools/gumbox/tree/main/specs
+      url: https://github.com/async/witness/tree/main/specs
       about: Product direction lives here. Check whether your idea is already designed.
-    - name: gum.tools
-      url: https://gum.tools
-      about: The website (in progress).

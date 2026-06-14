@@ -1,6 +1,6 @@
-# gumbox
+# Async Witness
 
-`gumbox` — boxes that run inside a real Vite pipeline and write receipts, replacing brittle
+`@async/witness` — boxes that run inside a real Vite pipeline and write receipts, replacing brittle
 local smoke scripts. Specs in `specs/` are product truth.
 
 ## Workspace
@@ -13,7 +13,7 @@ local smoke scripts. Specs in `specs/` are product truth.
 ## Hard Tooling Rules (see `.ruler/runtime-agnostic-tooling.md`)
 
 - Library and ordinary test code is runtime-agnostic: no `node:*` imports, no `process.*`, no
-  `Deno.*`/`Bun.*`. Filesystem access is an injected `GumboxFileSystem`; only explicit host
+  `Deno.*`/`Bun.*`. Filesystem access is an injected `WitnessFileSystem`; only explicit host
   boundaries adapt runtime filesystem APIs.
 - Use `pathe` (paths), `ufo` (URLs), `src/file-url.ts` (file URL <-> path), `std-env` (runtime
   detection), `tinyglobby` (globbing), global `fetch`.

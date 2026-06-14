@@ -2,7 +2,7 @@
 // copied to a temp directory (with no node_modules) and still load.
 
 // Simulated user-project plugin: many real plugins (qwik, frameworks) gate
-// production-only output on NODE_ENV. The emitted artifact proves gumbox runs
+// production-only output on NODE_ENV. The emitted artifact proves witness runs
 // builds with production semantics even though box discovery started a Vite
 // module runner (which sets NODE_ENV=development) in the same process.
 const recordNodeEnv = {

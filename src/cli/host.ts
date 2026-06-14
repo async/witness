@@ -1,5 +1,5 @@
 /**
- * Host boundary for the gumbox CLI. This is the one place (besides the
+ * Host boundary for the witness CLI. This is the one place (besides the
  * test-support adapter that re-exports it) allowed to adapt runtime APIs —
  * command line arguments, working directory, exit code, and filesystem —
  * into the injected capabilities the runtime-agnostic CLI core consumes.
@@ -10,8 +10,8 @@ import path from 'pathe';
 import { createFileSystem } from '../filesystem.ts';
 import type {
 	FileSystemDirectoryEntry,
-	GumboxFileSystem,
-	GumboxFileSystemRuntime,
+	WitnessFileSystem,
+	WitnessFileSystemRuntime,
 } from '../filesystem.ts';
 
 type DenoRuntimeLike = {
@@ -69,7 +69,7 @@ function globalProcess(): HostProcessLike | undefined {
 	return (globalThis as typeof globalThis & { process?: HostProcessLike })['process'];
 }
 
-function createDenoRuntime(runtime: DenoRuntimeLike): GumboxFileSystemRuntime {
+function createDenoRuntime(runtime: DenoRuntimeLike): WitnessFileSystemRuntime {
 	return {
 		readTextFile: (filePath) => runtime.readTextFile(filePath),
 		writeTextFile: (filePath, data) => runtime.writeTextFile(filePath, data),
@@ -83,7 +83,7 @@ function createDenoRuntime(runtime: DenoRuntimeLike): GumboxFileSystemRuntime {
 	};
 }
 
-function createNodeRuntime(fileSystem: NodeFileSystemLike): GumboxFileSystemRuntime {
+function createNodeRuntime(fileSystem: NodeFileSystemLike): WitnessFileSystemRuntime {
 	return {
 		readTextFile: (filePath) => fileSystem.readFile(filePath, 'utf8'),
 		writeTextFile: (filePath, data) => fileSystem.writeFile(filePath, data, 'utf8'),
@@ -114,7 +114,7 @@ function createNodeRuntime(fileSystem: NodeFileSystemLike): GumboxFileSystemRunt
 	};
 }
 
-function createHostRuntime(): GumboxFileSystemRuntime {
+function createHostRuntime(): WitnessFileSystemRuntime {
 	const denoRuntime = globalDeno();
 	if (denoRuntime !== undefined) {
 		return createDenoRuntime(denoRuntime);
@@ -127,10 +127,10 @@ function createHostRuntime(): GumboxFileSystemRuntime {
 		return createNodeRuntime(fileSystemModule.promises);
 	}
 
-	throw new Error('gumbox could not find a host filesystem on this runtime.');
+	throw new Error('witness could not find a host filesystem on this runtime.');
 }
 
-export function createHostFileSystem(): GumboxFileSystem {
+export function createHostFileSystem(): WitnessFileSystem {
 	return createFileSystem(createHostRuntime());
 }
 
@@ -144,7 +144,7 @@ export function getHostCommandLineArgs(): string[] {
 		// argv[0] is the runtime binary and argv[1] is the script path.
 		return nodeArgv.slice(2);
 	}
-	throw new Error('gumbox could not read command line arguments on this runtime.');
+	throw new Error('witness could not read command line arguments on this runtime.');
 }
 
 export function getHostWorkingDirectory(): string {
@@ -152,7 +152,7 @@ export function getHostWorkingDirectory(): string {
 	if (cwd !== undefined) {
 		return cwd();
 	}
-	throw new Error('gumbox could not determine the working directory on this runtime.');
+	throw new Error('witness could not determine the working directory on this runtime.');
 }
 
 function readHostEnv(name: string): string | undefined {
@@ -212,7 +212,7 @@ export function setHostExitCode(code: number): void {
 		hostProcess.exitCode = code;
 	}
 	if (denoRuntime === undefined && hostProcess === undefined && code !== 0) {
-		throw new Error(`gumbox exited with code ${code} on a runtime without exit codes.`);
+		throw new Error(`witness exited with code ${code} on a runtime without exit codes.`);
 	}
 }
 

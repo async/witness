@@ -5,7 +5,7 @@ import type { BoxDefinition, BoxOptions, BoxRunFn, NamedBoxDefinition } from './
  * the `box` they call may come from a different evaluation of this module.
  * `Symbol.for` keeps the brand shared across instances.
  */
-const BOX_BRAND = Symbol.for('gumbox.box.v1');
+const BOX_BRAND = Symbol.for('@async/witness.box.v1');
 
 export function box(run: BoxRunFn): BoxDefinition;
 export function box(name: string, run: BoxRunFn): NamedBoxDefinition;

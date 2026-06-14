@@ -5,6 +5,6 @@
  * is exactly one runtime filesystem adapter in the repo.
  */
 import { createHostFileSystem } from '../../src/cli/host.ts';
-import type { GumboxFileSystem } from '../../src/filesystem.ts';
+import type { WitnessFileSystem } from '../../src/filesystem.ts';
 
-export const fileSystem: GumboxFileSystem = createHostFileSystem();
+export const fileSystem: WitnessFileSystem = createHostFileSystem();

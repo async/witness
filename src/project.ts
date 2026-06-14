@@ -1,6 +1,6 @@
 import path from 'pathe';
 import type { EvidenceStore } from './evidence.ts';
-import type { GumboxFileSystem } from './filesystem.ts';
+import type { WitnessFileSystem } from './filesystem.ts';
 import { isPathNotFoundError } from './filesystem.ts';
 import type {
 	EditApi,
@@ -56,7 +56,7 @@ export type ProjectRuntime = {
 
 export function createProjectApi(options: {
 	root: string;
-	fileSystem: GumboxFileSystem;
+	fileSystem: WitnessFileSystem;
 	store: EvidenceStore;
 	/** The Vite config file resolved by a running dev server, when one exists. */
 	getConfigFile?(): string | null;

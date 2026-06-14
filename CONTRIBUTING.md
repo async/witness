@@ -1,9 +1,9 @@
-# Contributing to gumbox
+# Contributing to Async Witness
 
-gumbox runs **boxes** — small TypeScript files that drive a real Vite pipeline (dev server,
+Async Witness runs **boxes** — small TypeScript files that drive a real Vite pipeline (dev server,
 file edits, builds, a real browser) and write a JSON **receipt** proving what happened.
 
-Contributing here means one of three things: making gumbox observe Vite more faithfully,
+Contributing here means one of three things: making Async Witness observe Vite more faithfully,
 making receipts richer, or making the authoring API clearer. This guide gets you productive
 on all three.
 
@@ -25,7 +25,7 @@ The repo runs on Deno — no Node/npm/pnpm setup, `deno.json` is the whole manif
 
 Browser-dependent tests drive your installed Chrome/Edge/Chromium over the Chrome
 DevTools Protocol and skip automatically on machines without one — nothing to download.
-Set `GUMBOX_BROWSER_PATH` to pin a specific executable (see "Bring your own browser" in
+Set `WITNESS_BROWSER_PATH` to pin a specific executable (see "Bring your own browser" in
 the README for the full discovery order).
 
 ## How a box run works
@@ -39,12 +39,12 @@ Everything in this codebase serves one loop:
 A box looks like this:
 
 ```ts
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export default box('message updates without reload', async ({ browser, project, expect }) => {
 	const page = await browser.visit('/demo');
 
-	// Edit a real project file; gumbox restores it after the run.
+	// Edit a real project file; Async Witness restores it after the run.
 	const change = await project.edit('src/message.ts', {
 		replace: ['before', 'after'],
 	});
@@ -58,9 +58,9 @@ export default box('message updates without reload', async ({ browser, project, 
 });
 ```
 
-While that runs, gumbox records **evidence** — every hot-channel payload, invalidated module,
+While that runs, Async Witness records **evidence** — every hot-channel payload, invalidated module,
 server restart, console error, navigation, and screenshot — whether or not the box asserts on
-it. The run ends with a versioned JSON receipt under `.gumbox/receipts/<run>/` showing the
+it. The run ends with a versioned JSON receipt under `.witness/receipts/<run>/` showing the
 edit diff, each environment's reaction, every assertion (passed AND failed, with expected vs
 observed), and a causal timeline.
 
@@ -69,8 +69,8 @@ observed), and a causal timeline.
 - **An assertion is a partial receipt.** `expect.edit(change, {...})` takes the same shape the
   receipt records — authors copy the outcome they expect. Don't add method-grammar assertions
   (`noFullReload`-style names were removed deliberately).
-- **Receipts must not lie.** gumbox drives the _project's own_ Vite copy, never imposes
-  `NODE_ENV`, and never replaces real pipeline behavior with mocks. If gumbox changes what the
+- **Receipts must not lie.** Async Witness drives the _project's own_ Vite copy, never imposes
+  `NODE_ENV`, and never replaces real pipeline behavior with mocks. If Async Witness changes what the
   pipeline would have produced, that's a bug — we've shipped fixes for exactly that (see
   `src/vite-loader.ts`).
 
@@ -93,7 +93,7 @@ How one box run flows through `src/`:
 | `src/evidence.ts`                | taps Vite's hot channel and `hotUpdate` hook, classifies each reaction       |
 | `src/expect.ts`                  | the assertion surface (`expect.edit`, `expect.page.outcome`, ...)            |
 | `src/receipt.ts`                 | assembles and writes receipts                                                |
-| `src/cli/`                       | the `gumbox` CLI and the host boundary (argv, fs, signals, colors, browser)  |
+| `src/cli/`                       | the `witness` CLI and the host boundary (argv, fs, signals, colors, browser) |
 | `test/fixtures/`                 | small real Vite apps — their box files are executable documentation          |
 | `test/*.test.ts`                 | copy a fixture to a temp dir, run boxes for real, assert on the receipt JSON |
 
@@ -122,7 +122,7 @@ Testing rules you'll be reviewed against:
 
 **`src/` and test bodies never import `node:*` or touch `process.*`/`Deno.*`.** Paths come
 from `pathe`, file-URL helpers from `src/file-url.ts`, globbing from `tinyglobby`, filesystem access through
-the injected `GumboxFileSystem`. Only explicit host boundaries (`src/cli/host.ts`,
+the injected `WitnessFileSystem`. Only explicit host boundaries (`src/cli/host.ts`,
 `test/support/*`) may adapt runtime APIs. Full policy:
 `.ruler/rules/runtime-agnostic-tooling.md`.
 
@@ -156,7 +156,7 @@ preferences belong in your global `~/.config/ruler/`.
 
 ## See it used for real
 
-The sibling `qwik-bundler` repo consumes gumbox via `link:../gumbox`: its `boxes/` directory
+The sibling `qwik-bundler` repo consumes `@async/witness` via `link:../witness`: its `boxes/` directory
 replaced thirteen smoke scripts with twelve boxes (HMR across client/SSR/workerd environments,
 build artifact scans, state preservation). When you change the authoring API or receipts,
 those boxes are the best reality check — and the best examples to read.

@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 export const ConfigRestart = box(
 	{ name: 'vite config edit restarts the dev server', tags: ['pipeline'] },

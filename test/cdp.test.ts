@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { GumboxBrowserSession } from '../src/browser.ts';
+import type { WitnessBrowserSession } from '../src/browser.ts';
 import {
 	discoverBrowserExecutable,
 	knownBrowserExecutables,
@@ -83,23 +83,23 @@ describe('browser discovery', () => {
 		expect(executable).toBe('/usr/bin/chromium');
 	});
 
-	test('an explicit GUMBOX_BROWSER_PATH override wins over known paths', async () => {
+	test('an explicit WITNESS_BROWSER_PATH override wins over known paths', async () => {
 		const executable = await discoverBrowserExecutable({
 			platform: 'darwin',
-			readEnv: envFrom({ GUMBOX_BROWSER_PATH: '/opt/custom/chrome' }),
+			readEnv: envFrom({ WITNESS_BROWSER_PATH: '/opt/custom/chrome' }),
 			isExecutableFile: (filePath) => Promise.resolve(filePath === '/opt/custom/chrome'),
 		});
 		expect(executable).toBe('/opt/custom/chrome');
 	});
 
-	test('a missing GUMBOX_BROWSER_PATH override fails closed instead of falling through', async () => {
+	test('a missing WITNESS_BROWSER_PATH override fails closed instead of falling through', async () => {
 		await expect(
 			discoverBrowserExecutable({
 				platform: 'darwin',
-				readEnv: envFrom({ GUMBOX_BROWSER_PATH: '/opt/custom/chrome' }),
+				readEnv: envFrom({ WITNESS_BROWSER_PATH: '/opt/custom/chrome' }),
 				isExecutableFile: () => Promise.resolve(false),
 			}),
-		).rejects.toThrow(/GUMBOX_BROWSER_PATH.*\/opt\/custom\/chrome/s);
+		).rejects.toThrow(/WITNESS_BROWSER_PATH.*\/opt\/custom\/chrome/s);
 	});
 
 	test('no browser anywhere fails closed with an actionable install message', async () => {
@@ -242,19 +242,19 @@ describe('playwright cache fallback', () => {
 		expect(executable).toBe(cachedChromium);
 	});
 
-	test('GUMBOX_BROWSER_PATH still fails closed even with a cached chromium', async () => {
+	test('WITNESS_BROWSER_PATH still fails closed even with a cached chromium', async () => {
 		const cachedChromium =
 			'/Users/dev/Library/Caches/ms-playwright/chromium-1181/chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium';
 		await expect(
 			discoverBrowserExecutable({
 				platform: 'darwin',
-				readEnv: envFrom({ HOME: '/Users/dev', GUMBOX_BROWSER_PATH: '/typo/chrome' }),
+				readEnv: envFrom({ HOME: '/Users/dev', WITNESS_BROWSER_PATH: '/typo/chrome' }),
 				isExecutableFile: (filePath) => Promise.resolve(filePath === cachedChromium),
 				listDirectoryNames: cacheListing({
 					'/Users/dev/Library/Caches/ms-playwright': ['chromium-1181'],
 				}),
 			}),
-		).rejects.toThrow(/GUMBOX_BROWSER_PATH/);
+		).rejects.toThrow(/WITNESS_BROWSER_PATH/);
 	});
 });
 
@@ -506,10 +506,10 @@ function embeddedBudgetMs(expression: string): number {
 describe('in-page wait expression', () => {
 	test('resolves the predicate value once it turns truthy', async () => {
 		const state = { ready: false };
-		(globalThis as Record<string, unknown>).__gumboxWaitTestState = state;
+		(globalThis as Record<string, unknown>).__witnessWaitTestState = state;
 		try {
 			const expression = buildInPageWaitExpression(
-				'(globalThis.__gumboxWaitTestState.ready ? { found: true } : null)',
+				'(globalThis.__witnessWaitTestState.ready ? { found: true } : null)',
 				5_000,
 			);
 			const pendingWait = runWaitExpression(expression);
@@ -518,7 +518,7 @@ describe('in-page wait expression', () => {
 			}, 20);
 			await expect(pendingWait).resolves.toEqual({ found: true });
 		} finally {
-			delete (globalThis as Record<string, unknown>).__gumboxWaitTestState;
+			delete (globalThis as Record<string, unknown>).__witnessWaitTestState;
 		}
 	});
 
@@ -1011,7 +1011,7 @@ function createPoolHarness(options: { contextFailuresPerProcess?: number[] } = {
 		record.loseConnection = connectOptions.onConnectionLost;
 		let remainingFailures = options.contextFailuresPerProcess?.[processes.indexOf(record)] ?? 0;
 		return Promise.resolve({
-			createContextSession: (): Promise<GumboxBrowserSession> => {
+			createContextSession: (): Promise<WitnessBrowserSession> => {
 				if (remainingFailures > 0) {
 					remainingFailures--;
 					return Promise.reject(new Error('Target.createBrowserContext failed'));

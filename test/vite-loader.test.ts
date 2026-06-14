@@ -90,7 +90,7 @@ describe('resolveProjectViteEntryUrl', () => {
 
 	test('returns undefined when no ancestor carries a vite package', async () => {
 		// Asserted from a filesystem root: a temp project inside this repo
-		// would (correctly) walk up and find gumbox's own node_modules/vite.
-		expect(await resolveProjectViteEntryUrl('/nonexistent-gumbox-probe')).toBe(undefined);
+		// would (correctly) walk up and find witness's own node_modules/vite.
+		expect(await resolveProjectViteEntryUrl('/nonexistent-witness-probe')).toBe(undefined);
 	});
 });

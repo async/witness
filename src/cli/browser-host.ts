@@ -1,22 +1,22 @@
 /**
  * Host boundary for browser automation. This is the one place (besides the
  * test-support adapter that re-exports it) allowed to drive a real browser.
- * gumbox owns the whole stack: per-OS discovery + process launch
+ * witness owns the whole stack: per-OS discovery + process launch
  * (`browser-launch.ts`), a JSON-RPC client over the global WebSocket
  * (`cdp-client.ts`), and the CDP page adapter (`cdp-browser.ts`).
  *
  * No browser binary is downloaded at install time: launch discovers an
- * installed Chrome, Edge, or Chromium (or an explicit `GUMBOX_BROWSER_PATH`)
+ * installed Chrome, Edge, or Chromium (or an explicit `WITNESS_BROWSER_PATH`)
  * and speaks the Chrome DevTools Protocol to it directly.
  *
  * The process is pooled: one launched browser per headless mode is shared
- * across every `launch()` call, and each GumboxBrowserSession maps to an
+ * across every `launch()` call, and each WitnessBrowserSession maps to an
  * isolated CDP browser context (Target.createBrowserContext) instead of a
  * fresh process — the same amortization playwright uses. The pooled process
  * is never shut down by a session; `shutdownLiveBrowserSessions()` (run end,
  * test afterAll, interrupt handler) owns its disposal.
  */
-import type { BrowserLaunchOptions, GumboxBrowser, GumboxBrowserSession } from '../browser.ts';
+import type { BrowserLaunchOptions, WitnessBrowser, WitnessBrowserSession } from '../browser.ts';
 import { launchBrowserEndpoint } from './browser-launch.ts';
 import { connectCdpBrowser } from './cdp-browser.ts';
 import type { CdpBrowserConnection, LaunchedBrowserEndpoint } from './cdp-browser.ts';
@@ -37,7 +37,7 @@ export type CreateHostBrowserOptions = {
 	): Promise<CdpBrowserConnection>;
 };
 
-export function createHostBrowser(options: CreateHostBrowserOptions = {}): GumboxBrowser {
+export function createHostBrowser(options: CreateHostBrowserOptions = {}): WitnessBrowser {
 	const launchEndpoint = options.launchEndpoint ?? launchBrowserEndpoint;
 	const connectBrowser = options.connectBrowser ?? connectCdpBrowser;
 	// One pooled browser process per headless mode, keyed by the flag.
@@ -87,7 +87,7 @@ export function createHostBrowser(options: CreateHostBrowserOptions = {}): Gumbo
 
 	return {
 		name: 'chromium',
-		launch: async (launchOptions: BrowserLaunchOptions): Promise<GumboxBrowserSession> => {
+		launch: async (launchOptions: BrowserLaunchOptions): Promise<WitnessBrowserSession> => {
 			const entry = await acquireLiveEntry(launchOptions.headless);
 			try {
 				return await entry.browser.createContextSession();

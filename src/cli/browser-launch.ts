@@ -93,7 +93,7 @@ function detectHostPlatform(): BrowserPlatform {
 		return os;
 	}
 	throw new Error(
-		`gumbox cannot launch a browser on platform '${os ?? 'unknown'}'. ` +
+		`witness cannot launch a browser on platform '${os ?? 'unknown'}'. ` +
 			`Supported platforms: macOS, Linux, Windows.`,
 	);
 }
@@ -127,7 +127,7 @@ async function listHostDirectoryNames(dirPath: string): Promise<string[]> {
 	}
 	const fs = nodeFsPromises();
 	if (fs === undefined) {
-		throw new Error('gumbox could not find a host filesystem on this runtime.');
+		throw new Error('witness could not find a host filesystem on this runtime.');
 	}
 	return fs.readdir(dirPath);
 }
@@ -144,7 +144,7 @@ async function pathExists(filePath: string): Promise<boolean> {
 	}
 	const fs = nodeFsPromises();
 	if (fs === undefined) {
-		throw new Error('gumbox could not find a host filesystem on this runtime.');
+		throw new Error('witness could not find a host filesystem on this runtime.');
 	}
 	try {
 		await fs.stat(filePath);
@@ -157,14 +157,14 @@ async function pathExists(filePath: string): Promise<boolean> {
 async function makeTempProfileDir(): Promise<string> {
 	const denoRuntime = globalDeno();
 	if (denoRuntime?.makeTempDir !== undefined) {
-		return denoRuntime.makeTempDir({ prefix: 'gumbox-chromium-' });
+		return denoRuntime.makeTempDir({ prefix: 'witness-chromium-' });
 	}
 	const fs = nodeFsPromises();
 	const os = nodeBuiltin<NodeOsLike>('os');
 	if (fs !== undefined && os !== undefined) {
-		return fs.mkdtemp(path.join(os.tmpdir(), 'gumbox-chromium-'));
+		return fs.mkdtemp(path.join(os.tmpdir(), 'witness-chromium-'));
 	}
-	throw new Error('gumbox could not create a browser profile directory on this runtime.');
+	throw new Error('witness could not create a browser profile directory on this runtime.');
 }
 
 async function removeDirectoryOnce(dirPath: string): Promise<void> {
@@ -207,7 +207,7 @@ async function writeBinaryFile(filePath: string, bytes: Uint8Array): Promise<voi
 		await fs.writeFile(filePath, bytes);
 		return;
 	}
-	throw new Error('gumbox could not find a host filesystem to write the screenshot.');
+	throw new Error('witness could not find a host filesystem to write the screenshot.');
 }
 
 async function readTextFileIfPresent(filePath: string): Promise<string | null> {
@@ -309,7 +309,7 @@ function spawnBrowserProcess(executable: string, args: string[]): BrowserProcess
 	if (childProcess !== undefined) {
 		return spawnWithNode(childProcess, executable, args);
 	}
-	throw new Error('gumbox could not spawn a browser process on this runtime.');
+	throw new Error('witness could not spawn a browser process on this runtime.');
 }
 
 /**
@@ -442,10 +442,10 @@ function platformLaunchFlags(platform: BrowserPlatform): string[] {
 /**
  * Live browser shutdowns, registered at spawn and deregistered only once
  * their own shutdown runs. Pooled browser processes outlive every
- * GumboxBrowserSession (a session is a browser context, not a process), so an
+ * WitnessBrowserSession (a session is a browser context, not a process), so an
  * entry stays registered for the pool's whole lifetime — nothing deregisters
  * per session. Without this registry an interrupted or finished run would
- * orphan headless browsers and strand `gumbox-chromium-*` profile dirs in the
+ * orphan headless browsers and strand `witness-chromium-*` profile dirs in the
  * temp directory.
  */
 const liveBrowserShutdowns = new Set<() => Promise<void>>();

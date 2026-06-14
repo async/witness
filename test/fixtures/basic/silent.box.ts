@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // Some plugins swallow an update outright: the hotUpdate hook observes the
 // change, returns [], and broadcasts nothing. The environment's reaction is

@@ -1,6 +1,6 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
-const FORBIDDEN = 'GUMBOX_SERVER_ONLY_SECRET';
+const FORBIDDEN = 'WITNESS_SERVER_ONLY_SECRET';
 
 export const BuildArtifacts = box(
 	{ name: 'build artifacts include no server secret', tags: ['build'], modes: ['build'] },

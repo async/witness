@@ -1,5 +1,5 @@
 import path from 'pathe';
-import type { GumboxFileSystem } from './filesystem.ts';
+import type { WitnessFileSystem } from './filesystem.ts';
 
 /**
  * Browser automation is a host capability, exactly like the filesystem:
@@ -8,18 +8,18 @@ import type { GumboxFileSystem } from './filesystem.ts';
  * `src/cli/browser-host.ts` in this repo — into this minimal surface and
  * inject it into `runBoxes()`.
  */
-export type GumboxBrowser = {
+export type WitnessBrowser = {
 	/** Driver/browser family name recorded in receipts, e.g. 'chromium'. */
 	readonly name: string;
-	launch(options: BrowserLaunchOptions): Promise<GumboxBrowserSession>;
+	launch(options: BrowserLaunchOptions): Promise<WitnessBrowserSession>;
 };
 
 export type BrowserLaunchOptions = {
 	headless: boolean;
 };
 
-export type GumboxBrowserSession = {
-	newPage(): Promise<GumboxBrowserPage>;
+export type WitnessBrowserSession = {
+	newPage(): Promise<WitnessBrowserPage>;
 	close(): Promise<void>;
 };
 
@@ -39,7 +39,7 @@ export type BrowserRequestFailure = {
 	reason: string | null;
 };
 
-export type GumboxBrowserPage = {
+export type WitnessBrowserPage = {
 	goto(url: string): Promise<void>;
 	reload(): Promise<void>;
 	/** Full serialized HTML of the current DOM. */
@@ -154,7 +154,7 @@ export type BrowserEvidenceRuntime = {
 };
 
 type PageDriver = {
-	page: GumboxBrowserPage;
+	page: WitnessBrowserPage;
 	record: PageRecord;
 };
 
@@ -174,14 +174,14 @@ export function getPageDriver(handle: PageHandle, context: string): PageDriver {
 export function missingBrowserCapabilityError(context: string): Error {
 	return new Error(
 		`${context} needs a browser automation capability, but none was injected. ` +
-			`Pass \`browser\` to runBoxes(...) — the gumbox CLI wires its own CDP adapter ` +
+			`Pass \`browser\` to runBoxes(...) — the witness CLI wires its own CDP adapter ` +
 			`automatically when an installed Chromium-family browser (Chrome, Edge, or ` +
-			`Chromium) is found, or when GUMBOX_BROWSER_PATH points at one.`,
+			`Chromium) is found, or when WITNESS_BROWSER_PATH points at one.`,
 	);
 }
 
 /** In-page global that accumulates tracked custom DOM events per event name. */
-const TRACKED_EVENTS_GLOBAL = 'window.__gumboxTrackedEvents';
+const TRACKED_EVENTS_GLOBAL = 'window.__witnessTrackedEvents';
 
 /** Expression for how many tracked events of one name fired so far. */
 export function trackedEventCountExpression(eventName: string): string {
@@ -260,7 +260,7 @@ function trackEventScript(eventName: string): string {
  * tracked data; previously pulled evidence is kept in that case.
  */
 export async function syncTrackedEvents(
-	page: GumboxBrowserPage,
+	page: WitnessBrowserPage,
 	record: PageRecord,
 ): Promise<void> {
 	const trackedNames = Object.keys(record.trackedEvents);
@@ -299,9 +299,9 @@ function snapshotSlug(label: string): string {
  * writes screenshots + DOM/HTML snapshots under the receipt run directory.
  */
 export function createBrowserEvidence(options: {
-	browser: GumboxBrowser | undefined;
+	browser: WitnessBrowser | undefined;
 	headless: boolean;
-	fileSystem: GumboxFileSystem;
+	fileSystem: WitnessFileSystem;
 	/** Absolute receipt run directory; snapshots are referenced relative to it. */
 	runDir: string;
 	/** Run-dir-relative directory for this box's page assets, e.g. 'box-1'. */
@@ -314,10 +314,10 @@ export function createBrowserEvidence(options: {
 		options;
 	const pages: PageRecord[] = [];
 	const openDrivers: PageDriver[] = [];
-	let session: GumboxBrowserSession | null = null;
+	let session: WitnessBrowserSession | null = null;
 	let assetDirCreated = false;
 
-	const ensureSession = async (): Promise<GumboxBrowserSession> => {
+	const ensureSession = async (): Promise<WitnessBrowserSession> => {
 		if (session === null) {
 			if (browser === undefined) {
 				throw missingBrowserCapabilityError('browser.visit()');

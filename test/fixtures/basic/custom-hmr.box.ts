@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 // Frameworks like qwik replace Vite's 'update' payload with their own hot
 // messages. The framework message is the terminal HMR evidence then:

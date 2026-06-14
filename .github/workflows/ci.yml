@@ -1,4 +1,4 @@
-# CI for the gumbox Deno workspace. Jobs mirror the deno.json tasks so the
+# CI for the Async Witness Deno workspace. Jobs mirror the deno.json tasks so the
 # pipeline stays correct as the underlying tools change: check (fmt + lint +
 # typecheck), test (vitest against real Vite pipelines; browser suites use the
 # runner's preinstalled Chrome), and build (dist output).

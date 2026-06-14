@@ -8,8 +8,8 @@ import {
 import type { PageHandle } from './browser.ts';
 import { glob } from 'tinyglobby';
 import type { EvidenceStore } from './evidence.ts';
-import { classifyEditOutcome, GumboxTimeoutError } from './evidence.ts';
-import type { GumboxFileSystem } from './filesystem.ts';
+import { classifyEditOutcome, WitnessTimeoutError } from './evidence.ts';
+import type { WitnessFileSystem } from './filesystem.ts';
 import { resolveWithinRoot } from './project.ts';
 import type {
 	ArtifactHandle,
@@ -32,7 +32,7 @@ import type {
 	ResponseExpectation,
 } from './types.ts';
 
-export class GumboxAssertionError extends Error {}
+export class WitnessAssertionError extends Error {}
 
 /** Artifact extensions `expect.build.forbids` scans when no glob is given. */
 const TEXT_ARTIFACT_EXTENSIONS = ['.js', '.mjs', '.cjs', '.html', '.json', '.css', '.map', '.txt'];
@@ -60,7 +60,7 @@ export function createExpectApi(options: {
 	receiptPath: string;
 	defaultTimeoutMs: number;
 	root: string;
-	fileSystem: GumboxFileSystem;
+	fileSystem: WitnessFileSystem;
 	getEnvironmentKind(name: string): EnvironmentEditOutcome['kind'];
 	onAssertion(record: AssertionRecord): void;
 }): ExpectApi {
@@ -106,7 +106,7 @@ export function createExpectApi(options: {
 			...(detail?.expected === undefined ? {} : { expected: detail.expected }),
 			...(detail?.observed === undefined ? {} : { observed: detail.observed }),
 		});
-		throw new GumboxAssertionError(`${message}\nReceipt: ${receiptPath}`);
+		throw new WitnessAssertionError(`${message}\nReceipt: ${receiptPath}`);
 	};
 
 	const errorMessage = (error: unknown): string =>
@@ -147,7 +147,7 @@ export function createExpectApi(options: {
 					// payload ("no update happened"); report the partial outcome.
 					return outcome;
 				}
-				throw new GumboxTimeoutError(
+				throw new WitnessTimeoutError(
 					`timed out after ${timeoutMs}ms waiting for environment '${environment}' to settle its Vite reaction to the edit of ${change.file} (${store.events.length} Vite evidence events observed so far)`,
 				);
 			}
@@ -179,7 +179,7 @@ export function createExpectApi(options: {
 				}
 				// New evidence arrived: reclassify and restart the quiet window.
 			} catch (error) {
-				if (!(error instanceof GumboxTimeoutError)) {
+				if (!(error instanceof WitnessTimeoutError)) {
 					throw error;
 				}
 				if (quietEligible) {

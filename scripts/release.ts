@@ -1,5 +1,5 @@
 /**
- * Local release flow for gumbox, run with `deno task release`:
+ * Local release flow for witness, run with `deno task release`:
  *
  *   1. preflight — on main, no modified tracked files, tests pass
  *   2. bump the version in deno.json (bumpp's interactive picker)
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
 		throw error;
 	}
 
-	console.log(`\nreleased gumbox ${tag} 🎉`);
+	console.log(`\nreleased witness ${tag} 🎉`);
 }
 
 /** Refuses to release from a branch, a dirty tree, or a failing test suite. */

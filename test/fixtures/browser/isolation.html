@@ -2,7 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<title>Gumbox isolation fixture</title>
+		<title>Witness isolation fixture</title>
 	</head>
 	<body>
 		<h1>Isolation probe</h1>
@@ -15,14 +15,14 @@
 			const mode = new URLSearchParams(location.search).get('isolation');
 			const report = document.querySelector('#isolation-report');
 			if (mode === 'write') {
-				document.cookie = 'gumbox_isolation=box-a; path=/';
-				localStorage.setItem('gumbox-isolation', 'box-a');
-				const cookieStuck = document.cookie.includes('gumbox_isolation=box-a');
-				const storedValue = localStorage.getItem('gumbox-isolation');
+				document.cookie = 'witness_isolation=box-a; path=/';
+				localStorage.setItem('witness-isolation', 'box-a');
+				const cookieStuck = document.cookie.includes('witness_isolation=box-a');
+				const storedValue = localStorage.getItem('witness-isolation');
 				report.textContent = `wrote cookie=${cookieStuck} storage=${storedValue}`;
 			} else {
-				const cookieLeaked = document.cookie.includes('gumbox_isolation');
-				const storageLeaked = localStorage.getItem('gumbox-isolation') !== null;
+				const cookieLeaked = document.cookie.includes('witness_isolation');
+				const storageLeaked = localStorage.getItem('witness-isolation') !== null;
 				report.textContent =
 					cookieLeaked || storageLeaked
 						? `leaked cookie=${cookieLeaked} storage=${storageLeaked}`

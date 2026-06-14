@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 /**
  * The canonical contested case: every assertion passes, yet the page threw an

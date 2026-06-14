@@ -6,14 +6,14 @@ body:
     - type: markdown
       attributes:
           value: |
-              Thanks for the report! The fastest path to a fix is the **receipt** — gumbox writes
-              one to `.gumbox/receipts/` for every run, pass or fail, and it usually tells the
+              Thanks for the report! The fastest path to a fix is the **receipt** — Async Witness writes
+              one to `.witness/receipts/` for every run, pass or fail, and it usually tells the
               whole story. Paste it below if you have one.
     - type: textarea
       id: what-happened
       attributes:
           label: What happened
-          description: What did gumbox actually do?
+          description: What did Async Witness actually do?
           placeholder: 'The box reported `hmr: accepted` but the browser did a full reload.'
       validations:
           required: true
@@ -21,7 +21,7 @@ body:
       id: expected
       attributes:
           label: What you expected
-          description: What should the pipeline (or gumbox) have done instead?
+          description: What should the pipeline (or Async Witness) have done instead?
       validations:
           required: true
     - type: textarea
@@ -44,22 +44,22 @@ body:
       attributes:
           label: Receipt
           description: >-
-              Paste the receipt JSON from `.gumbox/receipts/` for the failing run. This is
+              Paste the receipt JSON from `.witness/receipts/` for the failing run. This is
               rendered as JSON automatically — no backticks needed.
           render: json
     - type: textarea
       id: logs
       attributes:
           label: CLI output / logs
-          description: Terminal output from the `gumbox` run, if it adds anything the receipt doesn't.
+          description: Terminal output from the `witness` run, if it adds anything the receipt doesn't.
           render: shell
     - type: textarea
       id: environment
       attributes:
           label: Environment
-          description: gumbox is pre-release, so a commit SHA stands in for a version.
+          description: Async Witness is pre-release, so a commit SHA stands in for a version.
           placeholder: |
-              gumbox: <commit SHA>
+              @async/witness: <commit SHA>
               Vite: 7.x
               Runtime: Node 24 / Deno 2.x / Bun 1.x
               OS: macOS 15

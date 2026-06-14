@@ -2,14 +2,14 @@
 
 ## Box Definition
 
-A Gumbox box is a reproducible QA workflow that exercises the user's real Vite
+A Async Witness box is a reproducible QA workflow that exercises the user's real Vite
 pipeline and emits a receipt.
 
 It may include:
 
 - starting or connecting to a Vite dev server
 - visiting a real app route through the default browser environment
-- presenting the visited route as a named UI state in the Gumbox state gallery
+- presenting the visited route as a named UI state in the Async Witness state gallery
 - requesting or importing from SSR, edge, worker, RSC, or custom environments
 - editing source files, config files, config dependencies, or env files
 - observing HMR, full reloads, module invalidation, overlays, and server
@@ -37,7 +37,7 @@ format; it is a box whose primary surface is a visible app route or
 browser-capable environment state.
 
 Agent verification is also first-class. A box should be able to serve as an
-oracle for a refactor loop: the agent changes code, runs Gumbox, reads the
+oracle for a refactor loop: the agent changes code, runs Async Witness, reads the
 receipt, and can tell whether the actual Vite pipeline still works.
 
 ## State Surfaces
@@ -85,7 +85,7 @@ Possible sources:
 
 For the MVP, explicit config is acceptable as an escape hatch. The happy path
 should be discovering `*.box.ts` and `*.box.tsx` files, loading the user's Vite
-config, generating typed project facts, and showing boxes in the Gumbox UI.
+config, generating typed project facts, and showing boxes in the Async Witness UI.
 
 ## File Convention
 
@@ -108,7 +108,7 @@ scenarios/qwik-dev.box.ts
 ```
 
 `box` should be the project primitive: a QA state or workflow that can run
-through the Vite pipeline and produce a receipt. The package name is Gumbox, but
+through the Vite pipeline and produce a receipt. The package name is Async Witness, but
 box files should not need to repeat the full package name.
 
 ## Box Lifecycle
@@ -143,8 +143,8 @@ box('empty cart', async ({ browser, expect, receipt }) => {
 });
 ```
 
-The Gumbox UI should display this as a state-gallery entry, but the route remains
-the user's real `/cart?state=empty` route. `/__gumbox` is the control surface,
+The Async Witness UI should display this as a state-gallery entry, but the route remains
+the user's real `/cart?state=empty` route. `/__witness` is the control surface,
 not the application route being tested.
 
 For an HMR box, the important proof is not only that the DOM changed. It should
@@ -204,7 +204,7 @@ It should answer:
 - whether the box was shown as a UI state
 - what changed during the run
 - what config was loaded, edited, or overlaid
-- which generated Gumbox project type model was used
+- which generated Async Witness project type model was used
 - what the browser saw
 - screenshot, DOM, and visible-state preview metadata
 - what server or custom environments emitted
@@ -300,7 +300,7 @@ Contested never changes box status. The per-box summary records the flat
 verdicts plus a `contested` flag, and the run summary counts contested
 passes.
 
-All witness fields are additive. `gumboxReceipt` stays `1`, no existing field
+All witness fields are additive. `asyncWitnessReceipt` stays `1`, no existing field
 changes shape or meaning, and existing receipt consumers keep working unread.
 
 Witness identity and verdicts are data, and color belongs to the renderer.
@@ -310,7 +310,7 @@ carries the full meaning through stable greppable tokens such as `pipeline+`,
 
 ## Timeline
 
-The Gumbox UI should center on a box timeline before promising full application
+The Async Witness UI should center on a box timeline before promising full application
 time travel. Every timeline event carries a `witness` attribution naming whose
 testimony it is.
 
@@ -366,7 +366,7 @@ The UI should make it easy to move from a failed event to:
 "Time travel" should initially mean replaying captured evidence along the box
 timeline.
 
-Gumbox should not promise that it can rewind arbitrary application state unless a
+Async Witness should not promise that it can rewind arbitrary application state unless a
 specific framework or instrumentation layer supports that. The safer MVP is
 timeline playback: inspect what happened at each captured step and compare
 evidence before and after a project edit, environment request, build, preview, or

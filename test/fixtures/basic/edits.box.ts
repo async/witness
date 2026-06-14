@@ -1,4 +1,4 @@
-import { box } from 'gumbox';
+import { box } from '@async/witness';
 
 function ensure(condition: boolean, message: string): void {
 	if (!condition) {
