@@ -31,7 +31,9 @@ jobs:
                   cache: true
 
             - name: Install dependencies
-              run: deno install --frozen
+              run: |
+                  deno task manifest
+                  deno install --frozen
 
             - name: Format, lint, typecheck
               run: deno task check
@@ -50,7 +52,9 @@ jobs:
                   cache: true
 
             - name: Install dependencies
-              run: deno install --frozen
+              run: |
+                  deno task manifest
+                  deno install --frozen
 
             - name: Run tests
               run: deno task test
@@ -71,7 +75,9 @@ jobs:
                   cache: true
 
             - name: Install dependencies
-              run: deno install --frozen
+              run: |
+                  deno task manifest
+                  deno install --frozen
 
             - name: Run tests
               run: deno task test
@@ -90,7 +96,9 @@ jobs:
                   cache: true
 
             - name: Install dependencies
-              run: deno install --frozen
+              run: |
+                  deno task manifest
+                  deno install --frozen
 
             - name: Build dist
               run: deno task build

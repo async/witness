@@ -49,7 +49,9 @@ jobs:
                   node-version: 24
 
             - name: Install dependencies
-              run: deno install --frozen
+              run: |
+                  deno task manifest
+                  deno install --frozen
 
             - name: Validate release input and branch
               env:
