@@ -9,7 +9,7 @@
 	"imports": {
 		"mitt": "npm:mitt@^3.0.1",
 		"pathe": "npm:pathe@^2.0.3",
-		"tinyglobby": "npm:tinyglobby@^0.2.17",
+		"tinyglobby": "npm:tinyglobby@~0.2.17",
 		"@types/node": "npm:@types/node@24.12.2",
 		"typescript": "npm:typescript@5.9.3",
 		"vite": "npm:vite@8.0.16",
