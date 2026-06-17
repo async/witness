@@ -60,6 +60,14 @@ const packageManifest = {
 	name: requireField(denoManifest.name, 'name'),
 	version: requireField(denoManifest.version, 'version'),
 	type: 'module',
+	repository: {
+		type: 'git',
+		url: 'git+https://github.com/async/witness.git',
+	},
+	bugs: {
+		url: 'https://github.com/async/witness/issues',
+	},
+	homepage: 'https://github.com/async/witness#readme',
 	files: ['dist'],
 	exports: {
 		'.': {
@@ -69,7 +77,7 @@ const packageManifest = {
 		'./cli': './dist/witness.mjs',
 	},
 	bin: {
-		witness: './dist/witness.mjs',
+		witness: 'dist/witness.mjs',
 	},
 	publishConfig: {
 		access: 'public',
