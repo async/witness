@@ -49,7 +49,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                  deno task manifest
+                  deno run --no-config --no-lock --allow-read=. --allow-write=. ./scripts/generate-package-json.ts
                   deno install --frozen
 
             - name: Validate release input and branch
@@ -96,7 +96,7 @@ jobs:
                   set -euo pipefail
 
                   deno run -A "$BUMPP" deno.json --release "$RELEASE" --yes --no-commit --no-tag --no-push
-                  deno task manifest
+                  deno run --no-config --no-lock --allow-read=. --allow-write=. ./scripts/generate-package-json.ts
 
                   package_name="$(deno eval "const manifest = JSON.parse(await Deno.readTextFile('deno.json')); console.log(manifest.name ?? '')")"
                   version="$(deno eval "const manifest = JSON.parse(await Deno.readTextFile('deno.json')); console.log(manifest.version ?? '')")"

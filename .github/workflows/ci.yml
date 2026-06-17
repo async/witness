@@ -32,7 +32,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                  deno task manifest
+                  deno run --no-config --no-lock --allow-read=. --allow-write=. ./scripts/generate-package-json.ts
                   deno install --frozen
 
             - name: Format, lint, typecheck
@@ -53,7 +53,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                  deno task manifest
+                  deno run --no-config --no-lock --allow-read=. --allow-write=. ./scripts/generate-package-json.ts
                   deno install --frozen
 
             - name: Run tests
@@ -76,7 +76,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                  deno task manifest
+                  deno run --no-config --no-lock --allow-read=. --allow-write=. ./scripts/generate-package-json.ts
                   deno install --frozen
 
             - name: Run tests
@@ -97,7 +97,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                  deno task manifest
+                  deno run --no-config --no-lock --allow-read=. --allow-write=. ./scripts/generate-package-json.ts
                   deno install --frozen
 
             - name: Build dist
