@@ -64,7 +64,7 @@ async function main(): Promise<void> {
 	await step(`tag ${tag}`, ['git', 'tag', '-a', tag, '-m', tag]);
 
 	try {
-		await step('npm publish', ['npm', 'publish']);
+		await step('npm publish', ['npm', 'publish', '--access', 'public']);
 		await step('push main and tag', ['git', 'push', 'origin', 'main', tag]);
 		await createGithubRelease(tag, version);
 	} catch (error) {

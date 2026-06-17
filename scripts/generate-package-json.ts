@@ -56,6 +56,9 @@ const packageManifest = {
 	bin: {
 		witness: './dist/witness.mjs',
 	},
+	publishConfig: {
+		access: 'public',
+	},
 	peerDependencies: {
 		vite: vitePeerRange,
 	},
