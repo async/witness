@@ -1,0 +1,67 @@
+{
+	"name": "@async/witness",
+	"version": "0.5.0",
+	"homepage": "https://github.com/async/witness#readme",
+	"bugs": {
+		"url": "https://github.com/async/witness/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/async/witness.git"
+	},
+	"bin": {
+		"witness": "dist/witness.mjs"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"default": "./dist/index.mjs"
+		},
+		"./cli": {
+			"types": "./dist/witness.d.mts",
+			"default": "./dist/witness.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"dev": "vp test watch",
+		"test": "vp test",
+		"test:watch": "vp test watch",
+		"build": "vp pack",
+		"cli": "node ./dist/witness.mjs",
+		"fmt": "vp fmt",
+		"fmt:check": "vp fmt --check",
+		"lint": "vp lint",
+		"typecheck": "tsc --noEmit",
+		"check": "vp check && tsc --noEmit",
+		"prepublishOnly": "pnpm run build"
+	},
+	"dependencies": {
+		"mitt": "^3.0.1",
+		"pathe": "^2.0.3",
+		"tinyglobby": "~0.2.17"
+	},
+	"devDependencies": {
+		"@types/node": "24.12.2",
+		"bumpp": "11.1.0",
+		"changelogen": "0.6.2",
+		"typescript": "5.9.3",
+		"vite": "8.0.16",
+		"vite-plus": "0.1.20",
+		"vitest": "4.1.5"
+	},
+	"peerDependencies": {
+		"vite": "^8.0.0"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"packageManager": "pnpm@10.33.2"
+}

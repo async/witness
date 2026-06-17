@@ -1,8 +1,8 @@
 # Runtime-Agnostic Tooling Rule
 
-Async Witness library code must run anywhere Vite runs: Node, Deno, and Bun. The workspace itself runs on
-Deno. Generated code must always pick the fastest, most portable tool available — native tooling
-with TypeScript APIs and the unjs ecosystem first.
+Async Witness library code must run anywhere Vite runs: Node, Deno, and Bun. The workspace itself
+runs on pnpm and Node. Generated code must always pick the fastest, most portable tool available —
+native tooling with TypeScript APIs and the unjs ecosystem first.
 
 ## Forbidden In Library And Ordinary Test Code
 
@@ -49,14 +49,13 @@ or scatter direct filesystem access through `src/` or test bodies.
 - Prefer Rust-native tools with TypeScript APIs (oxc, rolldown, lightningcss, tinyglobby/fdir) and
   unjs packages over slower JS reimplementations.
 
-## Workspace Runtime: Deno
+## Workspace Runtime: pnpm
 
-- Run tasks with `deno task test`, `deno task build`, `deno task check`; install with
-  `deno install`.
-- Do not add pnpm/npm-specific workflow steps, scripts, lockfiles, or dependency sources.
-  `deno.json` is the canonical manifest; npm publishing requires a generated manifest or a
-  separate release path.
-- Never weaken the runtime-agnostic rules above because "the workspace is Deno" — workspace runtime
+- Run tasks with `pnpm run test`, `pnpm run build`, `pnpm run check`; install with
+  `pnpm install`.
+- `package.json` is the canonical manifest and `pnpm-lock.yaml` is the canonical lockfile. Do not
+  add Deno-specific workflow steps, lockfiles, or dependency sources for workspace tooling.
+- Never weaken the runtime-agnostic rules above because "the workspace is Node" — workspace runtime
   and library portability are independent.
 
 ## New Dependency Checklist

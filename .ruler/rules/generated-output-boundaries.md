@@ -8,11 +8,10 @@ not the place to make durable changes.
 Do not hand-edit generated outputs such as:
 
 - package build output: `dist/`
-- lockfiles: `deno.lock` (change dependencies via `deno.json` + `deno install`)
 - witness runtime output: `.witness/receipts/`, `.witness/types/`
 - scratch space: `.tmp/`
 - ruler-generated agent files: root `CLAUDE.md`, root `AGENTS.md`, `.claude/`, editor rule files
-  (regenerate with `npx @intellectronica/ruler apply`)
+  (regenerate with `pnpm dlx @intellectronica/ruler apply`)
 
 `.ruler/*.md` is committed, hand-edited source in this repo — see the guidance source of
 truth rule.
@@ -21,8 +20,8 @@ truth rule.
 
 Run the narrowest generator or updater that owns the changed output:
 
-- Build output changes: `deno task build`.
-- Lockfile changes: `deno install` after editing `deno.json`.
+- Build output changes: `pnpm run build`.
+- Lockfile changes: `pnpm install` after editing `package.json`.
 - Receipt fixtures in tests: rerun the test that writes them; never hand-craft receipt JSON.
 
 ## Review Standard

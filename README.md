@@ -144,13 +144,13 @@ state-gallery UI, generated types, and receipt replay are coming.
 
 ## Contributing
 
-The workspace runs on **Deno** (the library itself is runtime-agnostic — it runs wherever Vite
+The workspace runs on **pnpm** (the library itself is runtime-agnostic — it runs wherever Vite
 runs):
 
 ```sh
-deno install        # install dependencies
-deno task test      # run the test suite (drives real Vite pipelines)
-deno task check     # format check + lint + typecheck
+pnpm install        # install dependencies
+pnpm run test       # run the test suite (drives real Vite pipelines)
+pnpm run check      # format check + lint + typecheck
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full setup. Start with

@@ -2,7 +2,7 @@
 # See https://ai.intellectronica.net/ruler for documentation.
 #
 # Source of truth for AI guidance is .ruler/*.md. Regenerate agent files with:
-#   npx @intellectronica/ruler apply
+#   pnpm dlx @intellectronica/ruler apply
 
 # Default agents to enable when running `ruler apply`
 default_agents = ["claude", "codex"]

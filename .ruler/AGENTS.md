@@ -5,10 +5,10 @@ local smoke scripts. Specs in `specs/` are product truth.
 
 ## Workspace
 
-- Runtime/toolchain is **Deno**: `deno task test`, `deno task build`, `deno task check`,
-  `deno install`. Do not use pnpm/npm commands.
-- `deno.json` is the canonical workspace/package manifest. This repo has no `package.json`; npm
-  publishing requires a generated manifest or a separate release path.
+- Runtime/toolchain is **pnpm on Node**: `pnpm install`, `pnpm run test`, `pnpm run build`,
+  `pnpm run check`.
+- `package.json` is the canonical workspace/package manifest. Keep `pnpm-lock.yaml` in sync with
+  dependency changes so local `pnpm publish` and CI use the same graph.
 
 ## Hard Tooling Rules (see `.ruler/runtime-agnostic-tooling.md`)
 
@@ -22,5 +22,5 @@ local smoke scripts. Specs in `specs/` are product truth.
   the unjs ecosystem.
 
 All rules in `.ruler/*.md` apply; they are hand-edited committed source. Run
-`npx @intellectronica/ruler apply` after editing them to regenerate the agent files
+`pnpm dlx @intellectronica/ruler apply` after editing them to regenerate the agent files
 (`CLAUDE.md`, `AGENTS.md`, `.claude/`, …) — never hand-edit the generated outputs.

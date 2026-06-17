@@ -9,19 +9,20 @@ on all three.
 
 ## Setup (two minutes)
 
-The repo runs on Deno — no Node/npm/pnpm setup, `deno.json` is the whole manifest.
+The repo runs on pnpm and Node. `package.json` is the package manifest and `pnpm-lock.yaml`
+pins the dependency graph used by local development, CI, and publishing.
 
-1. Install Deno: <https://docs.deno.com/runtime/getting_started/installation/>
-2. `deno install` — Deno fetches the npm dependencies for you
-3. `deno task dev` — the test suite in watch mode, your main feedback loop
+1. Install Node 22 or newer and enable Corepack.
+2. `pnpm install` — pnpm installs the workspace dependencies from `pnpm-lock.yaml`
+3. `pnpm run dev` — the test suite in watch mode, your main feedback loop
 
-| Task              | What it does                           |
-| ----------------- | -------------------------------------- |
-| `deno task dev`   | tests in watch mode (start here)       |
-| `deno task test`  | run the suite once                     |
-| `deno task check` | format + lint + types — CI runs this   |
-| `deno task fmt`   | fix formatting when `check` complains  |
-| `deno task build` | bundle to `dist/` (what consumers run) |
+| Task             | What it does                           |
+| ---------------- | -------------------------------------- |
+| `pnpm run dev`   | tests in watch mode (start here)       |
+| `pnpm run test`  | run the suite once                     |
+| `pnpm run check` | format + lint + types — CI runs this   |
+| `pnpm run fmt`   | fix formatting when `check` complains  |
+| `pnpm run build` | bundle to `dist/` (what consumers run) |
 
 Browser-dependent tests drive your installed Chrome/Edge/Chromium over the Chrome
 DevTools Protocol and skip automatically on machines without one — nothing to download.
@@ -108,8 +109,8 @@ How one box run flows through `src/`:
    changes first — in the same PR is fine.
 2. Write the failing test: usually a small box in a `test/fixtures/*` app plus a test that
    runs it and asserts on the receipt. Confirm it fails for the right reason.
-3. Implement the smallest change that makes it pass, keeping `deno task dev` green.
-4. Run the full gate: `deno task test && deno task build && deno task check`.
+3. Implement the smallest change that makes it pass, keeping `pnpm run dev` green.
+4. Run the full gate: `pnpm run test && pnpm run build && pnpm run check`.
 
 Testing rules you'll be reviewed against:
 
@@ -146,7 +147,7 @@ Generated outputs (root `CLAUDE.md`, `AGENTS.md`, `.claude/`, editor rule files)
 **gitignored** — never hand-edit them. To work on this repo with an AI assistant:
 
 ```sh
-npx @intellectronica/ruler apply
+pnpm dlx @intellectronica/ruler apply
 ```
 
 That regenerates the config for the agents in `ruler.toml` (Claude Code and Codex by default).
@@ -164,7 +165,7 @@ those boxes are the best reality check — and the best examples to read.
 ## Before you open a PR
 
 ```sh
-deno task test && deno task build && deno task check
+pnpm run test && pnpm run build && pnpm run check
 ```
 
 All green, focused diff, spec updated if behavior changed. Thanks for contributing!

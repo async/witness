@@ -10,8 +10,8 @@ Use test-driven development for behavior changes and bug fixes.
    expected reason.
 4. Make the smallest implementation change that satisfies the test.
 5. Rerun the focused test and keep iterating until it passes.
-6. Run any broader verification required by the touched surface (`deno task test`,
-   `deno task build`, `deno task check`).
+6. Run any broader verification required by the touched surface (`pnpm run test`,
+   `pnpm run build`, `pnpm run check`).
 
 ## Test Selection
 
@@ -25,7 +25,7 @@ Use test-driven development for behavior changes and bug fixes.
 
 Docs-only, rules-only, formatting-only, dependency metadata, and generated-output maintenance
 changes do not need a failing product test first. They still need the narrowest relevant
-verification, such as formatting or `deno task check`.
+verification, such as formatting or `pnpm run check`.
 
 If dependencies, missing generated artifacts, or local environment constraints prevent a pre-fix
 test run, write the focused test first, record the blocker, and run the test as soon as the blocker

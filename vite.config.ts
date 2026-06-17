@@ -1,12 +1,8 @@
-import type { defineConfig } from 'vite-plus';
+import { defineConfig } from 'vite-plus';
 
-// No package.json in this workspace (deno.json is the manifest): a runtime
-// vite-plus import would be kept as a bare external specifier in vite's
-// bundled config and Deno's node-compat resolver cannot resolve it without a
-// nearest package.json. A type-only import is erased at bundle time.
-export default {
+export default defineConfig({
 	staged: {
-		'*': 'deno task check',
+		'*': 'pnpm run check',
 	},
 	pack: {
 		entry: {
@@ -16,9 +12,10 @@ export default {
 		format: ['esm'],
 		dts: true,
 		clean: true,
-		// tsdown cannot auto-derive externals without package.json
-		// dependencies; pack.deps.neverBundle crashes for the same reason.
-		external: ['mitt', 'pathe', 'tinyglobby', 'vite'],
+		deps: {
+			// Keep runtime helpers and the consumer project's Vite copy external.
+			neverBundle: ['mitt', 'pathe', 'tinyglobby', 'vite'],
+		},
 	},
 	test: {
 		environment: 'node',
@@ -35,4 +32,4 @@ export default {
 		singleQuote: true,
 		ignorePatterns: ['dist/**', 'node_modules/**', 'docs/**'],
 	},
-} satisfies Parameters<typeof defineConfig>[0];
+});
