@@ -6,7 +6,7 @@ Restart, hard-refresh, `console.log`, pray 🙏 — Vite knew what happened the 
 just never told you. Async Witness runs your real pipeline and writes a **receipt** for every run:
 proof you, CI, or an AI agent can act on.
 
-> ⚠️ **Pre-release** — not on npm yet; the [specs](./specs/README.md) are the product truth.
+> ⚠️ **Early release** — the [specs](./specs/README.md) are the product truth.
 > Designed by Jack, implemented by **Mythos**, reviewed by **Codex**.
 
 ## A box in 30 seconds

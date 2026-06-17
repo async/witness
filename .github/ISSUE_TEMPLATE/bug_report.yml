@@ -57,9 +57,9 @@ body:
       id: environment
       attributes:
           label: Environment
-          description: Async Witness is pre-release, so a commit SHA stands in for a version.
+          description: Package version, runtime, OS, and browser details for the failing run.
           placeholder: |
-              @async/witness: <commit SHA>
+              @async/witness: 0.5.x
               Vite: 7.x
               Runtime: Node 24 / Deno 2.x / Bun 1.x
               OS: macOS 15
