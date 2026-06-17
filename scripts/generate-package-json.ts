@@ -9,11 +9,9 @@
  * the runtime-agnostic rule forbids Deno.* in library code, while scripts/ is
  * an explicit host boundary. Run it with `deno task manifest`.
  *
- * Dependency posture: the manifest intentionally lists NO dependencies. The
- * dist build externalizes mitt/pathe/tinyglobby, and Node resolves those
- * through witness's own node_modules (populated by `deno install`) because
- * module resolution follows the link's real path. Only the vite peer range
- * is declared, taken from deno.json imports.
+ * Dependency posture: the dist build externalizes small runtime helpers, so the
+ * npm manifest must list the packages that installed consumers need at runtime.
+ * Vite remains a peer because Witness drives the consuming project's Vite copy.
  */
 
 type DenoManifest = {
@@ -27,6 +25,23 @@ function requireField(value: string | undefined, field: string): string {
 		throw new Error(`deno.json is missing '${field}', cannot generate package.json.`);
 	}
 	return value;
+}
+
+function requireNpmImport(imports: Record<string, string> | undefined, name: string): string {
+	const specifier = imports?.[name];
+	if (specifier === undefined || !specifier.startsWith('npm:')) {
+		throw new Error(`deno.json is missing npm import '${name}', cannot generate package.json.`);
+	}
+	const packageSpecifier = specifier.slice('npm:'.length);
+	if (packageSpecifier === name) {
+		return '*';
+	}
+
+	const versionPrefix = `${name}@`;
+	if (!packageSpecifier.startsWith(versionPrefix)) {
+		throw new Error(`deno.json npm import '${name}' uses unexpected specifier '${specifier}'.`);
+	}
+	return packageSpecifier.slice(versionPrefix.length);
 }
 
 // Consumers bring their own vite (witness drives the project's copy at
@@ -58,6 +73,11 @@ const packageManifest = {
 	},
 	publishConfig: {
 		access: 'public',
+	},
+	dependencies: {
+		mitt: requireNpmImport(denoManifest.imports, 'mitt'),
+		pathe: requireNpmImport(denoManifest.imports, 'pathe'),
+		tinyglobby: requireNpmImport(denoManifest.imports, 'tinyglobby'),
 	},
 	peerDependencies: {
 		vite: vitePeerRange,
