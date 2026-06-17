@@ -1,0 +1,184 @@
+name: Release
+
+on:
+    workflow_dispatch:
+        inputs:
+            release:
+                description: Semver bump or exact version, such as patch, minor, major, or 0.5.1.
+                required: true
+                default: patch
+                type: string
+            dry_run:
+                description: Build and validate the package without committing, tagging, publishing, or releasing.
+                required: true
+                default: false
+                type: boolean
+
+permissions:
+    contents: write
+    id-token: write
+
+concurrency:
+    group: release
+    cancel-in-progress: false
+
+env:
+    BUMPP: npm:bumpp@11.1.0
+    CHANGELOGEN: npm:changelogen@0.6.2
+
+jobs:
+    release:
+        name: release
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+              with:
+                  fetch-depth: 0
+
+            - name: Set up Deno
+              uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2.0.4
+              with:
+                  deno-version: v2.x
+                  cache: true
+
+            - name: Set up Node
+              uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+              with:
+                  node-version: 24
+
+            - name: Install dependencies
+              run: deno install --frozen
+
+            - name: Validate release input and branch
+              env:
+                  RELEASE: ${{ inputs.release }}
+              run: |
+                  set -euo pipefail
+
+                  if [ "$GITHUB_REF_NAME" != "main" ]; then
+                    echo "::error::Run releases from main. Current ref is $GITHUB_REF_NAME."
+                    exit 1
+                  fi
+
+                  git fetch origin main --tags
+                  if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+                    echo "::error::The workflow checkout is not the current origin/main."
+                    exit 1
+                  fi
+
+                  case "$RELEASE" in
+                    patch|minor|major|prepatch|preminor|premajor|prerelease) ;;
+                    *)
+                      if [[ ! "$RELEASE" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+                        echo "::error::release must be a semver bump name or exact semver version."
+                        exit 1
+                      fi
+                      ;;
+                  esac
+
+            - name: Run tests
+              run: deno task test
+
+            - name: Configure Git author
+              run: |
+                  set -euo pipefail
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            - name: Bump version
+              id: version
+              env:
+                  RELEASE: ${{ inputs.release }}
+              run: |
+                  set -euo pipefail
+
+                  deno run -A "$BUMPP" deno.json --release "$RELEASE" --yes --no-commit --no-tag --no-push
+                  deno task manifest
+
+                  package_name="$(deno eval "const manifest = JSON.parse(await Deno.readTextFile('deno.json')); console.log(manifest.name ?? '')")"
+                  version="$(deno eval "const manifest = JSON.parse(await Deno.readTextFile('deno.json')); console.log(manifest.version ?? '')")"
+
+                  if [ -z "$package_name" ] || [ -z "$version" ]; then
+                    echo "::error::deno.json must contain package name and version after the bump."
+                    exit 1
+                  fi
+
+                  tag="v$version"
+                  if git rev-parse --verify --quiet "$tag" >/dev/null; then
+                    echo "::error::Git tag $tag already exists."
+                    exit 1
+                  fi
+
+                  if npm view "$package_name@$version" version >/dev/null 2>&1; then
+                    echo "::error::$package_name@$version is already published."
+                    exit 1
+                  fi
+
+                  echo "package_name=$package_name" >> "$GITHUB_OUTPUT"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+            - name: Build dist
+              run: deno task build
+
+            - name: Generate release notes
+              id: notes
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+                  TAG: ${{ steps.version.outputs.tag }}
+              run: |
+                  set -euo pipefail
+
+                  previous_tag="$(git tag -l 'v*' --sort=-v:refname | grep -v "^$TAG$" | head -n 1 || true)"
+                  if [ -z "$previous_tag" ]; then
+                    previous_tag="$(git rev-list --max-parents=0 HEAD)"
+                  fi
+
+                  notes_file="$RUNNER_TEMP/release-notes.md"
+                  deno run -A "$CHANGELOGEN" -r "$VERSION" --from "$previous_tag" > "$notes_file"
+                  echo "file=$notes_file" >> "$GITHUB_OUTPUT"
+
+            - name: Validate npm package
+              run: npm publish --dry-run --access public
+
+            - name: Show dry-run release notes
+              if: ${{ inputs.dry_run }}
+              env:
+                  NOTES_FILE: ${{ steps.notes.outputs.file }}
+              run: cat "$NOTES_FILE"
+
+            - name: Commit and tag release
+              if: ${{ !inputs.dry_run }}
+              env:
+                  TAG: ${{ steps.version.outputs.tag }}
+              run: |
+                  set -euo pipefail
+
+                  git add deno.json deno.lock
+                  if git diff --cached --quiet; then
+                    echo "::error::Version bump did not change deno.json or deno.lock."
+                    exit 1
+                  fi
+
+                  git commit -m "chore: release $TAG"
+                  git tag -a "$TAG" -m "$TAG"
+
+            - name: Publish to npm
+              if: ${{ !inputs.dry_run }}
+              run: npm publish --access public
+
+            - name: Push release commit and tag
+              if: ${{ !inputs.dry_run }}
+              env:
+                  TAG: ${{ steps.version.outputs.tag }}
+              run: git push origin HEAD:main "$TAG"
+
+            - name: Create GitHub release
+              if: ${{ !inputs.dry_run }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  NOTES_FILE: ${{ steps.notes.outputs.file }}
+                  TAG: ${{ steps.version.outputs.tag }}
+              run: gh release create "$TAG" --title "$TAG" --notes-file "$NOTES_FILE" --verify-tag
