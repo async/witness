@@ -73,7 +73,7 @@
 		"tinyglobby": "~0.2.17"
 	},
 	"devDependencies": {
-		"@async/pipeline": "0.9.20",
+		"@async/pipeline": "0.9.23",
 		"@types/node": "24.12.2",
 		"typescript": "5.9.3",
 		"vite": "8.0.16",

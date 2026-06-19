@@ -19,8 +19,8 @@ importers:
         version: 0.2.17
     devDependencies:
       '@async/pipeline':
-        specifier: 0.9.20
-        version: 0.9.20
+        specifier: 0.9.23
+        version: 0.9.23
       '@types/node':
         specifier: 24.12.2
         version: 24.12.2
@@ -39,8 +39,8 @@ importers:
 
 packages:
 
-  '@async/pipeline@0.9.20':
-    resolution: {integrity: sha512-t3F+O9f52yhcHT3RtUk96jshdKc7hXqGVxLiFTUvDnqgfaLrznTrmaq9DyksQw866tlV2Su4q8001ViNuMAcGA==}
+  '@async/pipeline@0.9.23':
+    resolution: {integrity: sha512-P/dNRgexK1ZzfFIGi3P/T7Oouhkywpyp0xUOaMJKKYfvZBgLtSnmXX+eSoYFv2aF57iAFOyK/BvM/34tUn5H8g==}
     engines: {node: '>=24'}
     hasBin: true
 
@@ -986,7 +986,7 @@ packages:
 
 snapshots:
 
-  '@async/pipeline@0.9.20': {}
+  '@async/pipeline@0.9.23': {}
 
   '@emnapi/core@1.10.0':
     dependencies:

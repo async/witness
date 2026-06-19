@@ -76,7 +76,7 @@ jobs:
           mode: plan
           package-path: "."
           evidence-dir: .async/release
-          release-command: "npx --yes github:async/release#b21372abc92a921cf659e54dc479dfe1028f8acf"
+          release-command: "npx --yes github:async/release#e8c938ae44f11558fbbac1c805e0ce81ad765080"
         env:
           CI: true
 
@@ -86,7 +86,7 @@ jobs:
           mode: inspect
           package-path: "."
           evidence-dir: .async/release
-          release-command: "npx --yes github:async/release#b21372abc92a921cf659e54dc479dfe1028f8acf"
+          release-command: "npx --yes github:async/release#e8c938ae44f11558fbbac1c805e0ce81ad765080"
         env:
           CI: true
 
@@ -96,7 +96,7 @@ jobs:
           mode: changelog
           package-path: "."
           evidence-dir: .async/release
-          release-command: "npx --yes github:async/release#b21372abc92a921cf659e54dc479dfe1028f8acf"
+          release-command: "npx --yes github:async/release#e8c938ae44f11558fbbac1c805e0ce81ad765080"
         env:
           CI: true
 
@@ -106,7 +106,7 @@ jobs:
           mode: notes
           package-path: "."
           evidence-dir: .async/release
-          release-command: "npx --yes github:async/release#b21372abc92a921cf659e54dc479dfe1028f8acf"
+          release-command: "npx --yes github:async/release#e8c938ae44f11558fbbac1c805e0ce81ad765080"
         env:
           CI: true
 
@@ -162,7 +162,7 @@ jobs:
           mode: doctor
           package-path: "."
           evidence-dir: .async/release
-          release-command: "npx --yes github:async/release#b21372abc92a921cf659e54dc479dfe1028f8acf"
+          release-command: "npx --yes github:async/release#e8c938ae44f11558fbbac1c805e0ce81ad765080"
           network: live
         env:
           CI: true
@@ -228,7 +228,7 @@ jobs:
           mode: doctor
           package-path: "."
           evidence-dir: .async/release
-          release-command: "npx --yes github:async/release#b21372abc92a921cf659e54dc479dfe1028f8acf"
+          release-command: "npx --yes github:async/release#e8c938ae44f11558fbbac1c805e0ce81ad765080"
           network: live
         env:
           CI: true
