@@ -1,5 +1,5 @@
 import type { InlineConfig, ViteDevServer } from 'vite';
-import type { WitnessBrowser, PageHandle } from './browser.ts';
+import type { WitnessBrowser, BrowserVisitOptions, PageHandle } from './browser.ts';
 import type { WitnessFileSystem } from './filesystem.ts';
 import type { BoxWitnesses, WitnessId } from './witness.ts';
 
@@ -81,11 +81,11 @@ export type EnvironmentHandle = {
 	/** Import a module id through the environment's module runner. Runnable environments only. */
 	import<T = Record<string, unknown>>(id: string): Promise<T>;
 	/** Visit a route through a real browser. Browser-capable environments only. */
-	visit?(path: string): Promise<PageHandle>;
+	visit?(path: string, options?: BrowserVisitOptions): Promise<PageHandle>;
 };
 
 export type BrowserEnvironmentAlias = EnvironmentHandle & {
-	visit(path: string): Promise<PageHandle>;
+	visit(path: string, options?: BrowserVisitOptions): Promise<PageHandle>;
 };
 
 export type EnvironmentApi = Record<string, EnvironmentHandle>;
@@ -219,7 +219,7 @@ export type PreviewHandle = {
 	readonly url: string;
 	/** Browser alias for the preview surface: visits stay local to the preview run. */
 	readonly browser: {
-		visit(path: string): Promise<PageHandle>;
+		visit(path: string, options?: BrowserVisitOptions): Promise<PageHandle>;
 	};
 	/** Browserless preview evidence: fetch a route from the preview server. */
 	request(path: string): Promise<string>;

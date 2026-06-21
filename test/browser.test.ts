@@ -30,6 +30,20 @@ type PageEntry = {
 	consoleMessages: Array<{ level: string; text: string }>;
 	pageErrors: Array<{ message: string }>;
 	failedRequests: Array<{ url: string; method: string; reason: string | null }>;
+	networkRequests: Array<{
+		url: string;
+		method: string;
+		resourceType: string | null;
+		startTimeMs: number;
+		responseTimeMs: number | null;
+		endTimeMs: number | null;
+		durationMs: number | null;
+		status: number | null;
+		mimeType: string | null;
+		encodedDataLength: number | null;
+		failedReason: string | null;
+		initiatorType: string | null;
+	}>;
 	snapshots: SnapshotEntry[];
 	navigations: Array<{ url: string; at: string }>;
 	trackedEvents: Record<string, Array<{ at: string; detail: unknown }>>;
@@ -206,6 +220,39 @@ describe.skipIf(!availability.available)('witness browser evidence', () => {
 			const timelineTypes = receipt.boxes[0]!.timeline.map((event) => event.type);
 			expect(timelineTypes).toContain('console error captured');
 			expect(timelineTypes).toContain('network failure captured');
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		'completed network requests and CDP throttling become receipt evidence',
+		async () => {
+			const root = await createFixtureProject();
+			const boxes = await selectBoxes(root, 'network timings and throttling evidence');
+			const result = await runBoxes({ root, boxes, fileSystem, browser: hostBrowser });
+
+			expect(result.status, result.boxes[0]?.error?.message).toBe('passed');
+
+			const receipt = await readReceipt(result.receiptPath);
+			const page = receipt.boxes[0]!.pages[0]!;
+			expect(page.networkRequests.length).toBeGreaterThan(0);
+			const scriptRequest = page.networkRequests.find((request) =>
+				request.url.includes('/src/main.ts'),
+			);
+			expect(scriptRequest).toMatchObject({
+				method: 'GET',
+				status: 200,
+				failedReason: null,
+			});
+			expect(scriptRequest?.startTimeMs).toBeGreaterThan(0);
+			expect(scriptRequest?.endTimeMs).toBeGreaterThanOrEqual(
+				scriptRequest?.startTimeMs ?? 0,
+			);
+			expect(scriptRequest?.durationMs).toBeGreaterThanOrEqual(0);
+
+			const timelineTypes = receipt.boxes[0]!.timeline.map((event) => event.type);
+			expect(timelineTypes).toContain('network emulation applied');
+			expect(timelineTypes).toContain('network request completed');
 		},
 		TEST_TIMEOUT_MS,
 	);

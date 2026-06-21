@@ -39,6 +39,42 @@ export type BrowserRequestFailure = {
 	reason: string | null;
 };
 
+export type BrowserNetworkConditions = {
+	readonly offline?: boolean;
+	/** CDP Network.emulateNetworkConditions latency, in milliseconds. */
+	readonly latencyMs: number;
+	/** CDP expects bytes per second, not bits per second. Use -1 to disable. */
+	readonly downloadThroughputBytesPerSecond: number;
+	/** CDP expects bytes per second, not bits per second. Use -1 to disable. */
+	readonly uploadThroughputBytesPerSecond: number;
+	readonly connectionType?:
+		| 'none'
+		| 'cellular2g'
+		| 'cellular3g'
+		| 'cellular4g'
+		| 'bluetooth'
+		| 'ethernet'
+		| 'wifi'
+		| 'wimax'
+		| 'other';
+};
+
+export type BrowserNetworkRequest = {
+	readonly url: string;
+	readonly method: string;
+	readonly resourceType: string | null;
+	/** CDP monotonic timestamp in milliseconds. Relative ordering is stable. */
+	readonly startTimeMs: number;
+	readonly responseTimeMs: number | null;
+	readonly endTimeMs: number | null;
+	readonly durationMs: number | null;
+	readonly status: number | null;
+	readonly mimeType: string | null;
+	readonly encodedDataLength: number | null;
+	readonly failedReason: string | null;
+	readonly initiatorType: string | null;
+};
+
 export type WitnessBrowserPage = {
 	goto(url: string): Promise<void>;
 	reload(): Promise<void>;
@@ -55,6 +91,9 @@ export type WitnessBrowserPage = {
 	onConsoleMessage(listener: (message: BrowserConsoleMessage) => void): void;
 	onPageError(listener: (error: BrowserPageError) => void): void;
 	onRequestFailed(listener: (request: BrowserRequestFailure) => void): void;
+	onNetworkRequest(listener: (request: BrowserNetworkRequest) => void): void;
+	emulateNetwork(conditions: BrowserNetworkConditions): Promise<void>;
+	clearNetworkEmulation(): Promise<void>;
 	/** Fires on every main-frame navigation (reloads included). */
 	onNavigated(listener: (url: string) => void): void;
 	close(): Promise<void>;
@@ -100,6 +139,7 @@ export type PageRecord = {
 	consoleMessages: BrowserConsoleMessage[];
 	pageErrors: BrowserPageError[];
 	failedRequests: BrowserRequestFailure[];
+	networkRequests: BrowserNetworkRequest[];
 	snapshots: PageSnapshot[];
 	/** Main-frame navigations after the initial load; empty proves no reload. */
 	navigations: PageNavigation[];
@@ -120,6 +160,12 @@ export type PageHandle = {
 	readonly url: string;
 	reload(): Promise<void>;
 	content(): Promise<string>;
+	/** Completed browser network requests observed through CDP. */
+	networkRequests(): Promise<BrowserNetworkRequest[]>;
+	/** Applies CDP network emulation before a navigation or interaction. */
+	emulateNetwork(conditions: BrowserNetworkConditions): Promise<void>;
+	/** Clears CDP network emulation for this page. */
+	clearNetworkEmulation(): Promise<void>;
 	/**
 	 * Clicks the first element matching the selector, waiting (bounded,
 	 * event-driven) for it to become actionable. The minimal interaction
@@ -138,11 +184,17 @@ export type PageHandle = {
 	trackEvents(...eventNames: string[]): Promise<void>;
 };
 
+export type BrowserVisitOptions = {
+	/** Applies CDP network emulation before the initial navigation. */
+	readonly networkConditions?: BrowserNetworkConditions;
+};
+
 export type VisitArgs = {
 	baseUrl: string;
 	route: string;
 	environment: string;
 	surface: 'dev' | 'preview';
+	options?: BrowserVisitOptions;
 };
 
 export type BrowserEvidenceRuntime = {
@@ -380,6 +432,7 @@ export function createBrowserEvidence(options: {
 			consoleMessages: [],
 			pageErrors: [],
 			failedRequests: [],
+			networkRequests: [],
 			snapshots: [],
 			navigations: [],
 			trackedEvents: {},
@@ -415,6 +468,33 @@ export function createBrowserEvidence(options: {
 				reason: request.reason,
 			});
 		});
+		page.onNetworkRequest((request) => {
+			record.networkRequests.push(request);
+			onTimeline('network request completed', {
+				page: record.id,
+				url: request.url,
+				method: request.method,
+				resourceType: request.resourceType,
+				startTimeMs: request.startTimeMs,
+				responseTimeMs: request.responseTimeMs,
+				endTimeMs: request.endTimeMs,
+				durationMs: request.durationMs,
+				status: request.status,
+				failedReason: request.failedReason,
+			});
+		});
+		if (args.options?.networkConditions !== undefined) {
+			await page.emulateNetwork(args.options.networkConditions);
+			onTimeline('network emulation applied', {
+				page: record.id,
+				latencyMs: args.options.networkConditions.latencyMs,
+				downloadThroughputBytesPerSecond:
+					args.options.networkConditions.downloadThroughputBytesPerSecond,
+				uploadThroughputBytesPerSecond:
+					args.options.networkConditions.uploadThroughputBytesPerSecond,
+				connectionType: args.options.networkConditions.connectionType ?? null,
+			});
+		}
 
 		onTimeline('route requested', { environment, path: route, surface, url });
 		await page.goto(url);
@@ -437,6 +517,11 @@ export function createBrowserEvidence(options: {
 				onTimeline('page reloaded', { page: record.id, url });
 			},
 			content: () => page.content(),
+			networkRequests: async (): Promise<BrowserNetworkRequest[]> => [
+				...record.networkRequests,
+			],
+			emulateNetwork: (conditions): Promise<void> => page.emulateNetwork(conditions),
+			clearNetworkEmulation: (): Promise<void> => page.clearNetworkEmulation(),
 			click: async (
 				selector: string,
 				clickOptions?: { timeoutMs?: number },

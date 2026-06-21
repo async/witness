@@ -1,7 +1,7 @@
 import path from 'pathe';
 import type { FSWatcher, InlineConfig, ViteDevServer } from 'vite';
 import { createBrowserEvidence, missingBrowserCapabilityError } from './browser.ts';
-import type { WitnessBrowser, PageHandle } from './browser.ts';
+import type { WitnessBrowser, BrowserVisitOptions, PageHandle } from './browser.ts';
 import { runPipelineBuild } from './build.ts';
 import { discoverBoxes } from './discovery.ts';
 import { createEnvironmentRuntime } from './environments.ts';
@@ -306,7 +306,10 @@ async function runSingleBox(args: {
 			if (prop === 'visit') {
 				// The simple-box happy path: browser.visit() auto-starts the dev
 				// server, so a visit box does not need an explicit pipeline.dev().
-				return async (visitPath: string): Promise<PageHandle> => {
+				return async (
+					visitPath: string,
+					options?: BrowserVisitOptions,
+				): Promise<PageHandle> => {
 					if (browserCapability === undefined) {
 						throw missingBrowserCapabilityError(`browser.visit('${visitPath}')`);
 					}
@@ -317,7 +320,7 @@ async function runSingleBox(args: {
 							`environment '${handle.name}' is not browser-capable, so browser.visit('${visitPath}') is unavailable.`,
 						);
 					}
-					return await handle.visit(visitPath);
+					return await handle.visit(visitPath, options);
 				};
 			}
 			const runtime = state.runtime;

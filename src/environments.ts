@@ -1,5 +1,5 @@
 import type { DevEnvironment, ViteDevServer } from 'vite';
-import type { PageHandle, VisitArgs } from './browser.ts';
+import type { BrowserVisitOptions, PageHandle, VisitArgs } from './browser.ts';
 import type { EnvironmentFetchInit, EnvironmentHandle, EnvironmentResponse } from './types.ts';
 import type { ViteModule } from './vite-loader.ts';
 
@@ -154,12 +154,16 @@ export function createEnvironmentRuntime(
 			},
 		};
 		if (kind === 'browser') {
-			handle.visit = (visitPath: string): Promise<PageHandle> => {
+			handle.visit = (
+				visitPath: string,
+				options?: BrowserVisitOptions,
+			): Promise<PageHandle> => {
 				return visitPage({
 					baseUrl: serverUrl,
 					route: visitPath,
 					environment: name,
 					surface: 'dev',
+					options,
 				});
 			};
 		}

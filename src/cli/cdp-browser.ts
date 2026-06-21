@@ -5,7 +5,12 @@
  * stay behind the `LaunchedBrowserEndpoint` the host boundary
  * (`browser-launch.ts`) provides, so this module is runtime-agnostic.
  */
-import type { WitnessBrowserPage, WitnessBrowserSession } from '../browser.ts';
+import type {
+	BrowserNetworkConditions,
+	BrowserNetworkRequest,
+	WitnessBrowserPage,
+	WitnessBrowserSession,
+} from '../browser.ts';
 import { createCdpConnection, openCdpSocket } from './cdp-client.ts';
 import type { CdpConnection, CdpSocket } from './cdp-client.ts';
 
@@ -41,6 +46,20 @@ export type CdpRemoteObject = {
 type CdpExceptionDetails = {
 	text?: string;
 	exception?: CdpRemoteObject;
+};
+
+type NetworkRequestRecord = {
+	url: string;
+	method: string;
+	resourceType: string | null;
+	startTimeMs: number;
+	responseTimeMs: number | null;
+	endTimeMs: number | null;
+	status: number | null;
+	mimeType: string | null;
+	encodedDataLength: number | null;
+	failedReason: string | null;
+	initiatorType: string | null;
 };
 
 function delay(ms: number): Promise<void> {
@@ -397,18 +416,59 @@ async function createCdpPage(wiring: CdpPageWiring): Promise<WitnessBrowserPage>
 		await load.loaded;
 	};
 
+	const networkRequestListeners = new Set<(request: BrowserNetworkRequest) => void>();
+	const emitNetworkRequest = (request: NetworkRequestRecord): void => {
+		const completed: BrowserNetworkRequest = {
+			...request,
+			durationMs: request.endTimeMs === null ? null : request.endTimeMs - request.startTimeMs,
+		};
+		for (const listener of networkRequestListeners) {
+			listener(completed);
+		}
+	};
+
 	// requestId -> request facts, evicted once the request settles either way.
-	const inflightRequests = new Map<string, { url: string; method: string }>();
+	const inflightRequests = new Map<string, NetworkRequestRecord>();
 	pageConnection.on('Network.requestWillBeSent', (params) => {
 		const requestId = params.requestId as string;
 		const request = params.request as { url?: string; method?: string } | undefined;
+		const initiator = params.initiator as { type?: string } | undefined;
 		inflightRequests.set(requestId, {
 			url: request?.url ?? '',
 			method: request?.method ?? 'GET',
+			resourceType: (params.type as string | undefined) ?? null,
+			startTimeMs: Number(params.timestamp ?? 0) * 1000,
+			responseTimeMs: null,
+			endTimeMs: null,
+			status: null,
+			mimeType: null,
+			encodedDataLength: null,
+			failedReason: null,
+			initiatorType: initiator?.type ?? null,
 		});
 	});
+	pageConnection.on('Network.responseReceived', (params) => {
+		const request = inflightRequests.get(params.requestId as string);
+		if (request === undefined) {
+			return;
+		}
+		const response = params.response as { status?: number; mimeType?: string } | undefined;
+		request.responseTimeMs = Number(params.timestamp ?? 0) * 1000;
+		request.status = typeof response?.status === 'number' ? response.status : null;
+		request.mimeType = response?.mimeType ?? null;
+		request.resourceType = (params.type as string | undefined) ?? request.resourceType;
+	});
 	pageConnection.on('Network.loadingFinished', (params) => {
-		inflightRequests.delete(params.requestId as string);
+		const requestId = params.requestId as string;
+		const request = inflightRequests.get(requestId);
+		if (request === undefined) {
+			return;
+		}
+		inflightRequests.delete(requestId);
+		request.endTimeMs = Number(params.timestamp ?? 0) * 1000;
+		request.encodedDataLength =
+			typeof params.encodedDataLength === 'number' ? params.encodedDataLength : null;
+		emitNetworkRequest(request);
 	});
 
 	return {
@@ -494,6 +554,10 @@ async function createCdpPage(wiring: CdpPageWiring): Promise<WitnessBrowserPage>
 				}
 				inflightRequests.delete(requestId);
 				const errorText = params.errorText as string | undefined;
+				request.endTimeMs = Number(params.timestamp ?? 0) * 1000;
+				request.failedReason =
+					errorText === undefined || errorText === '' ? null : errorText;
+				emitNetworkRequest(request);
 				listener({
 					url: request.url,
 					method: request.method,
@@ -501,6 +565,24 @@ async function createCdpPage(wiring: CdpPageWiring): Promise<WitnessBrowserPage>
 				});
 			});
 		},
+		onNetworkRequest: (listener) => {
+			networkRequestListeners.add(listener);
+		},
+		emulateNetwork: (conditions) =>
+			pageConnection.send('Network.emulateNetworkConditions', {
+				offline: conditions.offline ?? false,
+				latency: conditions.latencyMs,
+				downloadThroughput: conditions.downloadThroughputBytesPerSecond,
+				uploadThroughput: conditions.uploadThroughputBytesPerSecond,
+				...(conditions.connectionType ? { connectionType: conditions.connectionType } : {}),
+			}) as Promise<void>,
+		clearNetworkEmulation: () =>
+			pageConnection.send('Network.emulateNetworkConditions', {
+				offline: false,
+				latency: 0,
+				downloadThroughput: -1,
+				uploadThroughput: -1,
+			}) as Promise<void>,
 		onNavigated: (listener) => {
 			pageConnection.on('Page.frameNavigated', (params) => {
 				const frame = params.frame as { parentId?: string; url?: string } | undefined;

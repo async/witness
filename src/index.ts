@@ -14,6 +14,8 @@ export type {
 export type {
 	BrowserConsoleMessage,
 	BrowserLaunchOptions,
+	BrowserNetworkConditions,
+	BrowserNetworkRequest,
 	BrowserPageError,
 	BrowserRequestFailure,
 	WitnessBrowser,

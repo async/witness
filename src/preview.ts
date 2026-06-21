@@ -1,6 +1,6 @@
 import type { InlineConfig } from 'vite';
 import { loadProjectVite } from './vite-loader.ts';
-import type { PageHandle, VisitArgs } from './browser.ts';
+import type { BrowserVisitOptions, PageHandle, VisitArgs } from './browser.ts';
 import type { BuildHandle, PipelinePreviewOptions, PreviewHandle, PreviewRecord } from './types.ts';
 
 function previewOutDir(build: BuildHandle): string {
@@ -74,8 +74,14 @@ export async function startPipelinePreview(args: {
 	const handle: PreviewHandle = {
 		url,
 		browser: {
-			visit: (route: string): Promise<PageHandle> =>
-				visit({ baseUrl: url, route, environment: browserAlias, surface: 'preview' }),
+			visit: (route: string, options?: BrowserVisitOptions): Promise<PageHandle> =>
+				visit({
+					baseUrl: url,
+					route,
+					environment: browserAlias,
+					surface: 'preview',
+					options,
+				}),
 		},
 		request: async (requestPath: string): Promise<string> => {
 			onTimeline('route requested', {
