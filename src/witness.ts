@@ -79,6 +79,7 @@ export type BoxEvidenceForWitnesses = {
 	timeline: WitnessTimelineEvent[];
 	editOutcomes: WitnessedEditOutcome[];
 	pagesVisited: number;
+	appSessions: number;
 	devServerStarted: boolean;
 	builds: number;
 	previews: number;
@@ -127,6 +128,12 @@ const TIMELINE_WITNESSES: Record<string, WitnessId> = {
 	'network failure captured': 'driver',
 	'screenshot captured': 'driver',
 	'screenshot failed': 'driver',
+	// app — facts only observable from an external web/desktop/mobile adapter
+	'app opened': 'driver',
+	'app accessibility captured': 'driver',
+	'app action performed': 'driver',
+	'app screenshot captured': 'driver',
+	'app closed': 'driver',
 	// box — the investigator's own actions and claims
 	'box started': 'box',
 	'box finished': 'box',
@@ -329,10 +336,11 @@ export function computeBoxWitnesses(evidence: BoxEvidenceForWitnesses): BoxWitne
 	const pipelineEngaged =
 		evidence.devServerStarted || evidence.builds > 0 || evidence.previews > 0;
 	const pageEngaged = evidence.pagesVisited > 0;
+	const driverEngaged = pageEngaged || evidence.appSessions > 0;
 	const engagement: Record<WitnessId, boolean> = {
 		pipeline: pipelineEngaged,
 		client: pageEngaged,
-		driver: pageEngaged,
+		driver: driverEngaged,
 		// The investigator is always on the stand for its own run.
 		box: true,
 	};

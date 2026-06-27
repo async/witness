@@ -6,6 +6,14 @@ export { createFileSystem } from './filesystem.ts';
 export { restorePendingEdits, runBoxes } from './runner.ts';
 export { WitnessAssertionError } from './expect.ts';
 export { WitnessTimeoutError } from './evidence.ts';
+export { iosXCTestAdapter } from './adapters/ios-xctest.ts';
+export { macosAXAdapter } from './adapters/macos-ax.ts';
+export { createNodeCommandRunner } from './adapters/command.ts';
+export type {
+	AdapterCommand,
+	AdapterCommandResult,
+	AdapterCommandRunner,
+} from './adapters/command.ts';
 export type {
 	FileSystemDirectoryEntry,
 	WitnessFileSystem,
@@ -28,6 +36,17 @@ export type {
 	PageSnapshot,
 	TrackedPageEvent,
 } from './browser.ts';
+export type {
+	PipelineAccessibilityNode,
+	PipelineAction,
+	PipelineAppHandle,
+	PipelineAppSessionRecord,
+	PipelineDriverSession,
+	PipelineOpenAdapter,
+	PipelineOpenTarget,
+} from './pipeline-open.ts';
+export type { IOSXCTestAdapterOptions } from './adapters/ios-xctest.ts';
+export type { MacOSAXAdapterOptions } from './adapters/macos-ax.ts';
 export type {
 	EvidenceEvent,
 	HotPayloadEvidence,

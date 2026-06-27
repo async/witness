@@ -3,6 +3,7 @@ import type { PageRecord } from './browser.ts';
 import type { EvidenceStore } from './evidence.ts';
 import { classifyEditOutcome } from './evidence.ts';
 import type { WitnessFileSystem } from './filesystem.ts';
+import type { PipelineAppSessionRecord } from './pipeline-open.ts';
 import { isPathAlreadyExistsError } from './filesystem.ts';
 import type {
 	AssertionRecord,
@@ -62,6 +63,7 @@ export class BoxRecorder {
 	readonly measurements: Measurement[] = [];
 	readonly builds: BuildRecord[] = [];
 	readonly previews: PreviewRecord[] = [];
+	readonly appSessions: PipelineAppSessionRecord[] = [];
 	edits: EditReceipt[] = [];
 	pages: PageRecord[] = [];
 	vite: {
@@ -208,6 +210,7 @@ export class BoxRecorder {
 				environments: outcome.environments,
 			})),
 			pagesVisited: this.pages.length,
+			appSessions: this.appSessions.length,
 			devServerStarted: this.vite.serverUrl !== null,
 			builds: this.builds.length,
 			previews: this.previews.length,
@@ -258,6 +261,9 @@ export class BoxRecorder {
 			builds: this.builds,
 			previews: this.previews,
 			pages: this.pages,
+			apps: {
+				sessions: this.appSessions,
+			},
 			editOutcomes,
 			assertions: this.assertions,
 			captures: this.captures,
@@ -278,6 +284,7 @@ export class BoxRecorder {
 				builds: this.builds.length,
 				previews: this.previews.length,
 				pages: this.pages.length,
+				appSessions: this.appSessions.length,
 				restorationFailed,
 				witnesses: summarizeWitnessVerdicts(witnesses),
 				contested: isContestedBox(meta.status, witnesses),

@@ -10,6 +10,7 @@ import { connectHotWebSocket, createEvidencePlugin, EvidenceStore } from './evid
 import { loadProjectVite, withoutNodeEnvLeak } from './vite-loader.ts';
 import { createExpectApi } from './expect.ts';
 import type { WitnessFileSystem } from './filesystem.ts';
+import { createPipelineOpenRuntime, normalizePipelineOpenAdapters } from './pipeline-open.ts';
 import { startPipelinePreview } from './preview.ts';
 import { createProjectApi } from './project.ts';
 import { BoxRecorder, createRunDirectory, writeRunReceipt } from './receipt.ts';
@@ -139,6 +140,7 @@ async function runSingleBox(args: {
 	assertionTimeoutMs: number;
 	fileSystem: WitnessFileSystem;
 	browser: WitnessBrowser | undefined;
+	adapters: RunBoxesOptions['adapters'];
 	headless: boolean;
 }): Promise<{ result: BoxRunResult; receipt: Record<string, unknown> }> {
 	const {
@@ -150,6 +152,7 @@ async function runSingleBox(args: {
 		assertionTimeoutMs,
 		fileSystem,
 		browser: browserCapability,
+		adapters,
 		headless,
 	} = args;
 	const definition = discovered.box;
@@ -168,6 +171,13 @@ async function runSingleBox(args: {
 		onTimeline: (type, detail) => recorder.timeline(type, detail),
 	});
 	recorder.pages = browserEvidence.pages;
+	const appRuntime = createPipelineOpenRuntime({
+		adapters: normalizePipelineOpenAdapters(adapters),
+		runDir,
+		receiptPath,
+		onSession: (record) => recorder.appSessions.push(record),
+		onTimeline: (type, detail) => recorder.timeline(type, detail),
+	});
 
 	const projectRuntime = createProjectApi({
 		root,
@@ -265,6 +275,7 @@ async function runSingleBox(args: {
 			openPreviews.push({ close });
 			return handle;
 		},
+		open: (target) => appRuntime.open(target),
 	};
 
 	const environment = new Proxy({} as EnvironmentApi, {
@@ -394,6 +405,7 @@ async function runSingleBox(args: {
 		recorder.timeline('box failed', { message: recorder.error.message });
 	} finally {
 		await mirrorWsUpdateEvidence(state, store);
+		await appRuntime.closeAll();
 		// Close the browser before the servers so no page keeps requests
 		// in flight against a server that is tearing down.
 		await browserEvidence.closeAll();
@@ -511,6 +523,7 @@ export async function runBoxes(options: RunBoxesOptions): Promise<RunBoxesResult
 				assertionTimeoutMs: options.assertionTimeoutMs ?? DEFAULT_ASSERTION_TIMEOUT_MS,
 				fileSystem,
 				browser: options.browser,
+				adapters: options.adapters,
 				headless: options.headless ?? true,
 			}),
 		);
