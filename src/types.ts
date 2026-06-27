@@ -1,6 +1,11 @@
 import type { InlineConfig, ViteDevServer } from 'vite';
 import type { WitnessBrowser, BrowserVisitOptions, PageHandle } from './browser.ts';
 import type { WitnessFileSystem } from './filesystem.ts';
+import type {
+	PipelineAppHandle,
+	PipelineOpenAdapter,
+	PipelineOpenTarget,
+} from './pipeline-open.ts';
 import type { BoxWitnesses, WitnessId } from './witness.ts';
 
 /**
@@ -35,7 +40,7 @@ export type BoxDefinition = {
 export type NamedBoxDefinition = Omit<BoxDefinition, 'name'> & { readonly name: string };
 
 /**
- * The exact six-key context passed to a box run function.
+ * The exact seven-key context passed to a box run function.
  */
 export type BoxContext = {
 	environment: EnvironmentApi;
@@ -242,6 +247,7 @@ export type PipelineApi = {
 	dev(options?: PipelineDevOptions): Promise<DevServerHandle>;
 	build(options?: PipelineBuildOptions): Promise<BuildHandle>;
 	preview(build: BuildHandle, options?: PipelinePreviewOptions): Promise<PreviewHandle>;
+	open(target?: PipelineOpenTarget): Promise<PipelineAppHandle>;
 };
 
 export type ExpectWaitOptions = {
@@ -580,6 +586,8 @@ export type RunBoxesOptions = {
 	fileSystem: WitnessFileSystem;
 	/** Host browser automation capability used by visit() and page evidence. */
 	browser?: WitnessBrowser;
+	/** Platform adapters used by pipeline.open() and app evidence. */
+	adapters?: PipelineOpenAdapter | PipelineOpenAdapter[];
 	/** Run browser sessions headlessly (default true). */
 	headless?: boolean;
 	/** Called with each box result as that box finishes, before the run summary. */

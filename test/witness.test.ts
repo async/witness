@@ -52,6 +52,12 @@ const KNOWN_TIMELINE_WITNESSES: Record<string, WitnessId> = {
 	'network failure captured': 'driver',
 	'screenshot captured': 'driver',
 	'screenshot failed': 'driver',
+	// app — facts only observable from an external web/desktop/mobile adapter
+	'app opened': 'driver',
+	'app accessibility captured': 'driver',
+	'app action performed': 'driver',
+	'app screenshot captured': 'driver',
+	'app closed': 'driver',
 	// box — the investigator's own actions and claims
 	'box started': 'box',
 	'box finished': 'box',
@@ -85,6 +91,7 @@ function evidence(overrides: Partial<BoxEvidenceForWitnesses>): BoxEvidenceForWi
 		timeline: [],
 		editOutcomes: [],
 		pagesVisited: 0,
+		appSessions: 0,
 		devServerStarted: false,
 		builds: 0,
 		previews: 0,
@@ -101,10 +108,14 @@ function healthyVisitEvidence(): BoxEvidenceForWitnesses {
 			timelineEvent('browser session started'),
 			timelineEvent('route visited'),
 			timelineEvent('dom snapshot captured'),
+			timelineEvent('app opened'),
+			timelineEvent('app accessibility captured'),
+			timelineEvent('app closed'),
 			timelineEvent('assertion passed'),
 			timelineEvent('box finished'),
 		],
 		pagesVisited: 1,
+		appSessions: 1,
 		devServerStarted: true,
 	});
 }
@@ -196,7 +207,7 @@ describe('witness verdicts', () => {
 		const witnesses = computeBoxWitnesses(healthyVisitEvidence());
 		expect(witnesses.pipeline.statements).toBe(1);
 		expect(witnesses.client.statements).toBe(1);
-		expect(witnesses.driver.statements).toBe(2);
+		expect(witnesses.driver.statements).toBe(5);
 		expect(witnesses.box.statements).toBe(3);
 	});
 
